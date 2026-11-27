@@ -10,6 +10,8 @@
     "build/**",
     ".svelte-kit/**",
     "test-results/**",
-    "playwright-report/**"
+    "playwright-report/**",
+    "**/.terraform/**",
+    "**/.terraform-local/**"
   ]
 }
