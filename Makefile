@@ -216,6 +216,38 @@ validate: install gofmt-check terraform-fmt-check $(addprefix validate-,$(TF_ENV
 	pnpm format:check
 
 # ============================================
+# API types
+# ============================================
+
+.PHONY: api-types api-types-check
+
+OPENAPI_SPEC ?= terraform/module/meal-planner/openapi.yaml
+API_TYPES ?= src/lib/api/types.ts
+# Prettier formats the generated file, so it's checked in exactly as
+# `format:check` expects.
+API_TYPES_GEN = pnpm exec openapi-typescript $(OPENAPI_SPEC) --output $(1) \
+	&& pnpm exec prettier --write --log-level warn $(1)
+
+# Regenerate the TypeScript types from the OpenAPI spec (check the result in).
+api-types: install
+	@if [ ! -f $(OPENAPI_SPEC) ]; then \
+		echo "$(OPENAPI_SPEC) doesn't exist yet; skipping api-types."; \
+	else \
+		mkdir -p $(dir $(API_TYPES)) && $(call API_TYPES_GEN,$(API_TYPES)); \
+	fi
+
+# Fails when the checked-in types are stale against the spec.
+api-types-check: install
+	@if [ ! -f $(OPENAPI_SPEC) ]; then \
+		echo "$(OPENAPI_SPEC) doesn't exist yet; skipping the api-types check."; \
+	else \
+		tmp=$(API_TYPES).check.ts; \
+		$(call API_TYPES_GEN,$$tmp) > /dev/null || { rm -f $$tmp; exit 1; }; \
+		if diff -u $(API_TYPES) $$tmp; then rm -f $$tmp; \
+		else rm -f $$tmp; echo "$(API_TYPES) is stale. Run \`make api-types\`."; exit 1; fi; \
+	fi
+
+# ============================================
 # Testing
 # ============================================
 
@@ -225,7 +257,7 @@ test-unit: install
 test-go:
 	cd backend && go test ./...
 
-test: lint check validate test-unit test-go test-terraform trivy
+test: lint check validate api-types-check test-unit test-go test-terraform trivy
 
 # Playwright starts the dev server itself (or reuses one locally).
 test-e2e: install
@@ -261,6 +293,9 @@ help:
 	@echo "  make test-go         Run Go tests"
 	@echo "  make test-terraform  Run terraform test (mocked providers, no AWS)"
 	@echo "  make test-e2e        Run Playwright E2E tests"
+	@echo ""
+	@echo "API:"
+	@echo "  make api-types       Regenerate src/lib/api/types.ts from openapi.yaml"
 	@echo ""
 	@echo "Code quality:"
 	@echo "  make lint            ESLint, Prettier, markdownlint, cspell, go vet, gofmt"
