@@ -1,0 +1,65 @@
+openapi: 3.0.3
+info:
+  title: Meal planner API
+  version: 1.0.0
+  description: >-
+    The meal planner's data API (DESIGN §5). Served by API Gateway under /api
+    on the app's CloudFront domain, from the stage named `api`. Terraform
+    fills in this file's placeholders (`templatefile`) before importing it.
+
+x-amazon-apigateway-request-validators:
+  all:
+    validateRequestBody: true
+    validateRequestParameters: true
+
+x-amazon-apigateway-request-validator: all
+
+components:
+  securitySchemes:
+    # Validates the Cognito ID token in the Authorization header.
+    CognitoAuthorizer:
+      type: apiKey
+      name: Authorization
+      in: header
+      x-amazon-apigateway-authtype: cognito_user_pools
+      x-amazon-apigateway-authorizer:
+        type: cognito_user_pools
+        providerARNs:
+          - '${cognito_user_pool_arn}'
+
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+
+# Every route needs a signed-in user unless it opts out.
+security:
+  - CognitoAuthorizer: []
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Returns ok. Public, and needs no backend.
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: The API is up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+      x-amazon-apigateway-integration:
+        type: mock
+        requestTemplates:
+          application/json: '{"statusCode": 200}'
+        responses:
+          default:
+            statusCode: '200'
+            responseTemplates:
+              application/json: '{"status": "ok"}'
