@@ -1,0 +1,63 @@
+name: Security
+
+# The Trivy IaC scan joins in phase 1, when there is Terraform to scan.
+
+on:
+  pull_request:
+  schedule:
+    # Mondays 18:00 UTC (early Tuesday morning in New Zealand).
+    - cron: '0 18 * * 1'
+  workflow_dispatch:
+
+# Cancel a superseded run when a PR gets a new push.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pnpm-audit:
+    name: pnpm-audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The pnpm version comes from `packageManager` in package.json.
+      - name: Set up pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      # Reads the lockfile only. With no production dependencies it reports
+      # "No known vulnerabilities found" and passes.
+      - name: Audit production dependencies
+        run: pnpm audit --prod
+
+  govulncheck:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run govulncheck
+        uses: golang/govulncheck-action@032d45514ae346b1db93c04b0c90b841c370344f # v1.1.0
+        with:
+          repo-checkout: false
+          # An empty version makes setup-go use go-version-file (and its
+          # `toolchain` line) instead of the action's default, `stable`.
+          go-version-input: ''
+          go-version-file: backend/go.mod
+          # No backend/go.sum yet, so there is nothing to key a cache on.
+          cache: false
+          work-dir: backend
