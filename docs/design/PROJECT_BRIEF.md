@@ -1,5 +1,8 @@
 # Project Brief
 
+<!-- The brief is written as unwrapped prose. -->
+<!-- markdownlint-disable MD013 -->
+
 ## Project Overview
 
 This app will be a meal planner, suitable for a group to collaborate on meal planning and shopping for a holiday trip.

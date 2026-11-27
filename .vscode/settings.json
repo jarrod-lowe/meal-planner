@@ -1,15 +1,17 @@
 {
-    "cSpell.words": [
-        "dynamodbav",
-        "gofmt",
-        "govulncheck",
-        "HSTS",
-        "httpx",
-        "perishability",
-        "pgrep",
-        "prerender",
-        "refetched",
-        "refetches",
-        "wildsea"
-    ]
+  "cSpell.words": [
+    "dynamodbav",
+    "fromjson",
+    "gofmt",
+    "gomod",
+    "govulncheck",
+    "HSTS",
+    "httpx",
+    "perishability",
+    "pgrep",
+    "prerender",
+    "refetched",
+    "refetches",
+    "wildsea"
+  ]
 }
