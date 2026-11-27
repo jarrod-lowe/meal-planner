@@ -1,6 +1,14 @@
 {
     "cSpell.words": [
+        "dynamodbav",
+        "gofmt",
+        "govulncheck",
+        "HSTS",
+        "httpx",
         "perishability",
+        "prerender",
+        "refetched",
+        "refetches",
         "wildsea"
     ]
 }

@@ -48,21 +48,21 @@ infrastructure and slower feedback for needs the brief doesn't have.
 
 ## Technology stack
 
-| Layer            | Technology                                                      |
-| ---------------- | --------------------------------------------------------------- |
-| UI framework     | SvelteKit (Svelte 5) with `adapter-static`, TypeScript          |
-| Planning engine  | Pure TypeScript module, no framework or browser dependencies    |
-| Build tool       | Vite                                                            |
-| Auth client      | Amplify v6 library (Auth only; no Amplify CLI or Hosting)       |
-| API              | API Gateway REST API, defined by an OpenAPI document            |
-| Backend handlers | Go Lambdas (`provided.al2023`, arm64)                           |
-| Database         | DynamoDB, single table, on-demand billing                       |
-| Authentication   | Cognito user pool, admin-created users only                     |
+| Layer            | Technology                                                           |
+| ---------------- | -------------------------------------------------------------------- |
+| UI framework     | SvelteKit (Svelte 5) with `adapter-static`, TypeScript               |
+| Planning engine  | Pure TypeScript module, no framework or browser dependencies         |
+| Build tool       | Vite                                                                 |
+| Auth client      | Amplify v6 library (Auth only; no Amplify CLI or Hosting)            |
+| API              | API Gateway REST API, defined by an OpenAPI document                 |
+| Backend handlers | Go Lambdas (`provided.al2023`, arm64)                                |
+| Database         | DynamoDB, single table, on-demand billing                            |
+| Authentication   | Cognito user pool, admin-created users only                          |
 | Hosting          | S3 + CloudFront, ACM certificate, Route 53 under `wildsea.lowe.kiwi` |
-| Infrastructure   | Terraform, run only via Make targets                            |
-| CI/CD            | GitHub Actions with OIDC into AWS                               |
-| Testing          | Vitest (unit/component), Go tests, Playwright (E2E)             |
-| Package manager  | pnpm                                                            |
+| Infrastructure   | Terraform, run only via Make targets                                 |
+| CI/CD            | GitHub Actions with OIDC into AWS                                    |
+| Testing          | Vitest (unit/component), Go tests, Playwright (E2E)                  |
+| Package manager  | pnpm                                                                 |
 
 These choices match `../dnd-planner` so that its Terraform modules, Makefile
 patterns and pipelines can be reused.
@@ -121,7 +121,7 @@ plan(facts: HolidayFacts, catalogue: Catalogue, now: LocalDateTime): Plan
 **Input:** the holiday's facts, the recipe and ingredient catalogue, and the
 current time in the holiday's time zone.
 
-**Output (`Plan`):**
+### Output (`Plan`)
 
 - the stock of each ingredient after each event
 - each shopping trip's shopping list, grouped by shop section, with
@@ -130,7 +130,7 @@ current time in the holiday's time zone.
 - warnings, such as a meal with no recipe yet or a reference to a deleted
   catalogue item
 
-**Processing:**
+### Processing
 
 - All events (manual stock changes, trip purchases, mealtime consumption) are
   sorted by holiday-local time.
@@ -161,18 +161,18 @@ TypeScript types are generated from the same file.
 
 The API is plain data access, with few endpoints:
 
-| Method & path                                      | Purpose                                                  |
-| -------------------------------------------------- | -------------------------------------------------------- |
-| `GET /api/holidays`                                | Holidays the caller is a member of                       |
-| `PUT /api/holidays/{holidayId}`                    | Create or update a holiday's details                     |
-| `GET /api/holidays/{holidayId}`                    | Every fact in the holiday (one partition Query)          |
-| `DELETE /api/holidays/{holidayId}`                 | Delete the holiday and all its items                     |
+| Method & path                                      | Purpose                                                         |
+| -------------------------------------------------- | --------------------------------------------------------------- |
+| `GET /api/holidays`                                | Holidays the caller is a member of                              |
+| `PUT /api/holidays/{holidayId}`                    | Create or update a holiday's details                            |
+| `GET /api/holidays/{holidayId}`                    | Every fact in the holiday (one partition Query)                 |
+| `DELETE /api/holidays/{holidayId}`                 | Delete the holiday and all its items                            |
 | `PUT /api/holidays/{holidayId}/{kind}/{itemId}`    | Create or update a member, attendee, meal, trip or stock change |
-| `DELETE /api/holidays/{holidayId}/{kind}/{itemId}` | Remove one of those                                      |
-| `GET /api/catalogue`                               | All recipes and ingredients                              |
-| `PUT /api/catalogue/{kind}/{itemId}`               | Create or update a recipe or ingredient                  |
-| `DELETE /api/catalogue/{kind}/{itemId}`            | Soft-delete a recipe or ingredient                       |
-| `GET /api/users`                                   | Cognito users, for adding members to a holiday           |
+| `DELETE /api/holidays/{holidayId}/{kind}/{itemId}` | Remove one of those                                             |
+| `GET /api/catalogue`                               | All recipes and ingredients                                     |
+| `PUT /api/catalogue/{kind}/{itemId}`               | Create or update a recipe or ingredient                         |
+| `DELETE /api/catalogue/{kind}/{itemId}`            | Soft-delete a recipe or ingredient                              |
+| `GET /api/users`                                   | Cognito users, for adding members to a holiday                  |
 
 - **IDs** are generated by the client (UUIDv7), so creation is an idempotent
   `PUT`.
@@ -206,16 +206,16 @@ Every item carries a `version` number:
 A single DynamoDB table (`PK`, `SK`) with one GSI. The details are in
 [DESIGN.md §4](DESIGN.md#4-dynamodb-storage); the layout is:
 
-| PK                | SK                    | Item                                                                  |
-| ----------------- | --------------------- | --------------------------------------------------------------------- |
-| `HOLIDAY#<id>`    | `META`                | Holiday name, time zone, date range                                   |
-| `HOLIDAY#<id>`    | `MEMBER#<userSub>`    | Membership; `GSI1PK=USER#<userSub>` lists a user's holidays            |
-| `HOLIDAY#<id>`    | `ATTENDEE#<id>`       | Attendee name                                                         |
-| `HOLIDAY#<id>`    | `MEAL#<id>`           | Meal name, recipe ID (optional), and its **mealtimes** embedded (each with ID, time and attendee IDs) |
-| `HOLIDAY#<id>`    | `TRIP#<id>`           | Shopping trip time, shop sections covered, status                     |
-| `HOLIDAY#<id>`    | `STOCK#<id>`          | Stock change: time, ingredient, quantity (±), source (`manual` or trip ID) |
-| `CATALOGUE`       | `RECIPE#<id>`         | Recipe name, servings, ingredient lines, notes                        |
-| `CATALOGUE`       | `INGREDIENT#<id>`     | Ingredient name, unit, shop section                                   |
+| PK             | SK                 | Item                                                                                                  |
+| -------------- | ------------------ | ----------------------------------------------------------------------------------------------------- |
+| `HOLIDAY#<id>` | `META`             | Holiday name, time zone, date range                                                                   |
+| `HOLIDAY#<id>` | `MEMBER#<userSub>` | Membership; `GSI1PK=USER#<userSub>` lists a user's holidays                                           |
+| `HOLIDAY#<id>` | `ATTENDEE#<id>`    | Attendee name                                                                                         |
+| `HOLIDAY#<id>` | `MEAL#<id>`        | Meal name, recipe ID (optional), and its **mealtimes** embedded (each with ID, time and attendee IDs) |
+| `HOLIDAY#<id>` | `TRIP#<id>`        | Shopping trip time, shop sections covered, status                                                     |
+| `HOLIDAY#<id>` | `STOCK#<id>`       | Stock change: time, ingredient, quantity (±), source (`manual` or trip ID)                            |
+| `CATALOGUE`    | `RECIPE#<id>`      | Recipe name, servings, ingredient lines, notes                                                        |
+| `CATALOGUE`    | `INGREDIENT#<id>`  | Ingredient name, unit, shop section                                                                   |
 
 Design points:
 
@@ -253,10 +253,10 @@ terraform/
     _shared/
 ```
 
-| Environment | Host                                   | Deployed by                                    |
-| ----------- | -------------------------------------- | ---------------------------------------------- |
-| test        | `meal-planner-test.wildsea.lowe.kiwi`  | `make deploy-test` from a developer machine    |
-| prod        | `meal-planner.wildsea.lowe.kiwi`       | GitHub Actions on merge to `main`              |
+| Environment | Host                                  | Deployed by                                 |
+| ----------- | ------------------------------------- | ------------------------------------------- |
+| test        | `meal-planner-test.wildsea.lowe.kiwi` | `make deploy-test` from a developer machine |
+| prod        | `meal-planner.wildsea.lowe.kiwi`      | GitHub Actions on merge to `main`           |
 
 - **Make** is the only interface to Terraform, the Lambda builds and the UI
   builds/uploads. Terraform is never run directly.
@@ -277,12 +277,12 @@ terraform/
 
 ## Testing
 
-| Layer      | Tooling                     | Focus                                                                         |
-| ---------- | --------------------------- | ----------------------------------------------------------------------------- |
-| Engine     | Vitest                      | The bulk of the tests: scaling, ordering, trip coverage, shortfalls, past vs upcoming trips |
-| Components | Vitest + Testing Library    | Pickers, mealtime entry, shopping list interactions                           |
-| Lambdas    | Go tests                    | Membership checks, version conditions, input mapping                          |
-| End to end | Playwright                  | Main flows against the dev server and the test environment, including a mobile viewport for shopping |
+| Layer      | Tooling                  | Focus                                                                                                |
+| ---------- | ------------------------ | ---------------------------------------------------------------------------------------------------- |
+| Engine     | Vitest                   | The bulk of the tests: scaling, ordering, trip coverage, shortfalls, past vs upcoming trips          |
+| Components | Vitest + Testing Library | Pickers, mealtime entry, shopping list interactions                                                  |
+| Lambdas    | Go tests                 | Membership checks, version conditions, input mapping                                                 |
+| End to end | Playwright               | Main flows against the dev server and the test environment, including a mobile viewport for shopping |
 
 ## Future options
 
