@@ -29,13 +29,24 @@ jobs:
       id-token: write
       pull-requests: write
 
-    # Dependabot runs can't read environment secrets, so they skip each step
-    # and the check still passes. A Terraform update from Dependabot is
-    # planned on the next human PR.
+    # Dependabot runs can't read environment secrets, so they can't plan.
+    # A Dependabot PR that doesn't touch terraform/ can't change prod, so the
+    # check passes. One that does fails here: a human pushes a commit to its
+    # branch, which re-runs this workflow with real credentials and posts a
+    # plan to review. Auto-merge skips Terraform updates.
     steps:
-      - name: Skip for Dependabot
+      - name: Check a Dependabot PR doesn't need a plan
         if: github.actor == 'dependabot[bot]'
-        run: echo "Skipping the prod plan for a Dependabot PR (no access to environment secrets)."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          gh pr view "$PR_URL" --json files --jq '.files[].path' > changed-files.txt
+          if grep -q '^terraform/' changed-files.txt; then
+            echo "::error::This Dependabot PR changes terraform/, which needs a prod plan Dependabot can't make. Push a commit to this branch (an empty one is fine) to plan it, review the plan, then merge by hand."
+            exit 1
+          fi
+          echo "No Terraform changes; skipping the prod plan for this Dependabot PR."
 
       - name: Checkout
         if: github.actor != 'dependabot[bot]'

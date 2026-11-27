@@ -877,7 +877,9 @@ Make targets follow dnd-planner. Terraform is only ever run through Make.
   unit tests and E2E tests (`make test`, `make test-e2e`)
 - **`environment-prod-plan.yaml`** (on pull request, alongside
   `pr-checks.yaml`): `terraform plan` for prod, posted as a PR comment.
-  Skipped for Dependabot, which can't read environment secrets. Terraform's
+  Dependabot can't read environment secrets, so its PRs pass without a plan
+  unless they touch `terraform/`; those fail until a human pushes to the
+  branch, which plans with real credentials. Terraform's
   version comes from the app environments' exact `required_version`, which
   `make validate` checks against `.terraform-version`.
 - **`environment-prod-deploy.yaml`** (on push to `main`):
@@ -890,8 +892,9 @@ Make targets follow dnd-planner. Terraform is only ever run through Make.
 - **`security.yaml`:**
   - triggered on pull requests and weekly
   - Trivy IaC scan, `pnpm audit`, `govulncheck`
-- **Dependabot:** npm, Go modules and Actions, with
-  `dependabot-automerge.yml` for passing patch and minor updates.
+- **Dependabot:** npm, Go modules, Actions and Terraform, with
+  `dependabot-automerge.yml` for passing patch and minor updates. Terraform
+  updates are merged by hand, after a human-triggered plan.
 - **AWS access:** via OIDC roles from `iac-roles`.
 
 ---
