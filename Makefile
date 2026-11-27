@@ -1,5 +1,5 @@
 .PHONY: help install dev build lint check test test-unit test-go test-e2e format validate gofmt-check clean \
-	terraform-fmt-check test-terraform lock setup-state setup-aws setup-github
+	terraform-fmt-check test-terraform trivy lock setup-state setup-aws setup-github
 
 default: help
 
@@ -146,6 +146,16 @@ lock-%:
 
 lock: $(addprefix lock-,$(TF_ENVS))
 
+# Trivy IaC scan (CRITICAL and HIGH). Runs when trivy is installed; CI always
+# runs it. Suppress a finding only inline (`#trivy:ignore:<ID>`), with a reason.
+trivy:
+	@if command -v trivy > /dev/null 2>&1; then \
+		trivy config --exit-code 1 --severity CRITICAL,HIGH \
+			--skip-dirs '**/.terraform' --skip-dirs '**/.terraform-local' terraform; \
+	else \
+		echo "trivy isn't installed; skipping the IaC scan (CI runs it)."; \
+	fi
+
 # ============================================
 # Setup
 # ============================================
@@ -212,7 +222,7 @@ test-unit: install
 test-go:
 	cd backend && go test ./...
 
-test: lint check test-unit test-go
+test: lint check validate test-unit test-go test-terraform trivy
 
 # Playwright starts the dev server itself (or reuses one locally).
 test-e2e: install
@@ -243,7 +253,7 @@ help:
 	@echo "  make build           Build the UI for production"
 	@echo ""
 	@echo "Testing:"
-	@echo "  make test            Lint, typecheck, Vitest and Go tests"
+	@echo "  make test            Lint, typecheck, validate, Vitest, Go, Terraform tests, Trivy"
 	@echo "  make test-unit       Run Vitest unit tests"
 	@echo "  make test-go         Run Go tests"
 	@echo "  make test-terraform  Run terraform test (mocked providers, no AWS)"
@@ -255,6 +265,7 @@ help:
 	@echo "  make format          Format with Prettier, gofmt and terraform fmt"
 	@echo "  make validate        Check formatting and validate Terraform"
 	@echo "  make lock            Record provider hashes in the Terraform lock files"
+	@echo "  make trivy           Trivy IaC scan of terraform/ (skipped if not installed)"
 	@echo ""
 	@echo "Utility:"
 	@echo "  make clean           Remove generated files and node_modules"

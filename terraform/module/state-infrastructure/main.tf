@@ -10,6 +10,11 @@ resource "aws_s3_bucket" "state" {
   }
 }
 
+# SSE-S3 rather than a customer-managed KMS key (DESIGN §8.4). The bucket is
+# private and TLS-only, and the CI read-only role must read state to plan, so
+# a CMK would add a key policy and a monthly cost for little gain. Revisit if
+# state ever holds secrets that read-only principals shouldn't see.
+#trivy:ignore:AWS-0132
 resource "aws_s3_bucket_server_side_encryption_configuration" "state" {
   bucket = aws_s3_bucket.state.id
 
