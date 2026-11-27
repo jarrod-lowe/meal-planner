@@ -589,9 +589,12 @@ backend/
 - **Theme:** all colours, spacing and type are CSS custom properties in
   `src/lib/theme.css`, in light and dark variants. Components use only these
   variables.
-- **Config:** Make writes `.env.<env>` from Terraform outputs
-  (`VITE_USER_POOL_ID`, `VITE_USER_POOL_CLIENT_ID`). The API is always the
-  relative `/api`.
+- **Config:** the UI needs `VITE_USER_POOL_ID` and
+  `VITE_USER_POOL_CLIENT_ID`, from Terraform outputs. For `make dev`, Make
+  writes them to `.env.local` (git-ignored) from the test environment, with
+  `VITE_API_PROXY_TARGET` for the `/api` proxy. Builds for an environment
+  (`make build-ui ENV=`, CI) get them as environment variables. The API is
+  always the relative `/api`.
 
 ### 7.2 Routes
 
@@ -865,6 +868,7 @@ Make targets follow dnd-planner. Terraform is only ever run through Make.
 | `make validate` / `make format`                   | Terraform validate/format, Prettier, gofmt                           |
 | `make setup-state` / `setup-aws` / `setup-github` | One-off bootstrap                                                    |
 | `make deploy-test`                                | Terraform apply (test), Lambda code, UI upload, invalidation         |
+| `make build-ui ENV=` / `make push-ui ENV=`        | UI build with an environment's settings; upload and invalidation     |
 | `make create-user ENV= EMAIL= NAME=`              | Admin-create a Cognito user                                          |
 
 ### GitHub Actions
