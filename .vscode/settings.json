@@ -6,6 +6,7 @@
         "HSTS",
         "httpx",
         "perishability",
+        "pgrep",
         "prerender",
         "refetched",
         "refetches",
