@@ -589,9 +589,12 @@ backend/
 - **Theme:** all colours, spacing and type are CSS custom properties in
   `src/lib/theme.css`, in light and dark variants. Components use only these
   variables.
-- **Config:** Make writes `.env.<env>` from Terraform outputs
-  (`VITE_USER_POOL_ID`, `VITE_USER_POOL_CLIENT_ID`). The API is always the
-  relative `/api`.
+- **Config:** the UI needs `VITE_USER_POOL_ID` and
+  `VITE_USER_POOL_CLIENT_ID`, from Terraform outputs. For `make dev`, Make
+  writes them to `.env.local` (git-ignored) from the test environment, with
+  `VITE_API_PROXY_TARGET` for the `/api` proxy. Builds for an environment
+  (`make build-ui ENV=`, CI) get them as environment variables. The API is
+  always the relative `/api`.
 
 ### 7.2 Routes
 
@@ -814,6 +817,12 @@ pieces below.
   - `Referrer-Policy: strict-origin-when-cross-origin`
   - a CSP allowing `'self'` plus `cognito-idp.ap-southeast-2.amazonaws.com`
     for `connect-src`
+  - `X-Frame-Options: DENY`
+- **Inline bootstrap script:** `index.html` has SvelteKit's inline bootstrap
+  `<script>`, which changes every build. The header's `script-src` therefore
+  allows inline scripts, and SvelteKit's `csp` option (hash mode) adds a
+  second CSP as a `<meta>` tag with that script's hash. Browsers enforce both,
+  so only the hashed bootstrap runs.
 - **Caching of uploads:** assets under `/_app/immutable/` are uploaded with
   `Cache-Control: public, max-age=31536000, immutable`. `index.html` is
   uploaded with `no-cache`.
@@ -859,6 +868,7 @@ Make targets follow dnd-planner. Terraform is only ever run through Make.
 | `make validate` / `make format`                   | Terraform validate/format, Prettier, gofmt                           |
 | `make setup-state` / `setup-aws` / `setup-github` | One-off bootstrap                                                    |
 | `make deploy-test`                                | Terraform apply (test), Lambda code, UI upload, invalidation         |
+| `make build-ui ENV=` / `make push-ui ENV=`        | UI build with an environment's settings; upload and invalidation     |
 | `make create-user ENV= EMAIL= NAME=`              | Admin-create a Cognito user                                          |
 
 ### GitHub Actions

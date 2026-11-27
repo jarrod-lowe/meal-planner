@@ -12,6 +12,7 @@
     "test-results/**",
     "playwright-report/**",
     "**/.terraform/**",
-    "**/.terraform-local/**"
+    "**/.terraform-local/**",
+    ".claude/worktrees/**"
   ]
 }

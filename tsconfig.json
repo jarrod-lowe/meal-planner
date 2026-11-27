@@ -13,6 +13,7 @@
     "eslint.config.js",
     "cspell.config.js",
     "tests",
+    "terraform/**/*.ts",
     "playwright.config.ts"
   ]
 }

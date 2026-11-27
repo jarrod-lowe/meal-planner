@@ -100,7 +100,9 @@ DESIGN.md in the same PR.
 | `make test-e2e`                                   | Playwright                                                                                           |
 | `make test-terraform`                             | `terraform test` with mocked providers (no AWS)                                                      |
 | `make api-types`                                  | Regenerate TS types after editing `openapi.yaml`                                                     |
-| `make deploy-test`                                | Deploy to `meal-planner-test.wildsea.lowe.kiwi`                                                      |
+| `make deploy-test`                                | Deploy to `meal-planner-test.wildsea.lowe.kiwi` and write `.env.local`; the human runs it            |
+| `make build-ui ENV=` / `push-ui ENV=`             | Build the UI with an environment's settings; upload it and invalidate CloudFront                     |
+| `make create-user ENV= EMAIL= NAME=`              | Admin-create a Cognito user; the human runs it                                                       |
 | `make format` / `make validate`                   | Formatting; format checks and Terraform validation                                                   |
 | `make lock`                                       | Record provider hashes in the Terraform lock files after a provider change                           |
 | `make setup-state` / `setup-aws` / `setup-github` | One-off bootstrap; the human runs these                                                              |

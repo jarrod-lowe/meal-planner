@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const port = 5173;
+// Its own port, so a `make dev` server (not in e2e mode) is never reused.
+const port = 5174;
 const ci = !!process.env.CI;
 
 export default defineConfig({
@@ -21,7 +22,8 @@ export default defineConfig({
     { name: 'phone', use: { ...devices['Pixel 7'] } }
   ],
   webServer: {
-    command: `pnpm exec vite dev --port ${port} --strictPort`,
+    // `e2e` mode swaps in the in-memory auth fake (src/lib/auth/index.ts).
+    command: `pnpm exec vite dev --mode e2e --port ${port} --strictPort`,
     url: `http://localhost:${port}`,
     reuseExistingServer: !ci
   }

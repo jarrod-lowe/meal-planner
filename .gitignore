@@ -38,3 +38,6 @@ tfplan
 terraform.tfvars
 !*.tfvars.example
 output.json
+
+# Agent worktrees (each is its own checkout, linted there)
+.claude/worktrees/

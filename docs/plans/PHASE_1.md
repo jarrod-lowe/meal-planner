@@ -120,20 +120,20 @@ deployment".
 
 ## PR 1.2: App infrastructure and login
 
-- [ ] **8. CloudFront Function.** `spa-rewrite.js` (viewer request): a path
+- [x] **8. CloudFront Function.** `spa-rewrite.js` (viewer request): a path
       with no file extension becomes `/index.html`; `/api/*` is never
       rewritten.
   - Tests first: Vitest over the function file (`/`, `/holidays/x`,
     `/_app/a.js`, `/favicon.png`, `/api/health`).
   - Files: `terraform/module/meal-planner/spa-rewrite.js`,
     `src/infra/spa-rewrite.test.ts` (or similar).
-- [ ] **9. App module: hosting.** UI bucket, OAC, CloudFront (default and
+- [x] **9. App module: hosting.** UI bucket, OAC, CloudFront (default and
       `/api/*` behaviours, the function, the response headers policy from
       DESIGN §8.1), the ACM certificate in us-east-1 and the Route 53 alias.
   - Tests first: `terraform test` asserting the behaviours, cache policies,
     headers (HSTS, CSP `connect-src` with Cognito) and the alias.
   - Files: `terraform/module/meal-planner/{main,cdn,variables,outputs}.tf`.
-- [ ] **10. App module: Cognito and API.** User pool (admin-create only,
+- [x] **10. App module: Cognito and API.** User pool (admin-create only,
       email sign-in, `name` required, 12-character minimum, MFA off), public
       SRP client with 30-day refresh, and a REST API from `openapi.yaml`
       (stage `api`, mock `GET /health`, Cognito authoriser defined,
@@ -142,10 +142,10 @@ deployment".
     name, throttling and log retention.
   - Files: `terraform/module/meal-planner/{cognito,api}.tf`,
     `terraform/module/meal-planner/openapi.yaml`.
-- [ ] **11. Environments.** `test` and `prod` with `_shared/` symlinks, as in
+- [x] **11. Environments.** `test` and `prod` with `_shared/` symlinks, as in
       dnd-planner, and `default_tags` (`project`, `environment`).
   - Files: `terraform/environment/{test,prod,_shared}/*`.
-- [ ] **12. Make targets.** `deploy-test` (apply, write `.env.local`, build,
+- [x] **12. Make targets.** `deploy-test` (apply, write `.env.local`, build,
       upload with the DESIGN §8.1 cache headers, invalidate), `push-ui ENV=`,
       `create-user ENV= EMAIL= NAME=`, and `api-types` (`openapi-typescript`
       into `src/lib/api/types.ts`). `make dev` proxies `/api` to the test
@@ -153,21 +153,21 @@ deployment".
   - Tests first: `make api-types` output is checked in, and `make test`
     fails if it's stale.
   - Files: `Makefile`, `vite.config.ts`, `src/lib/api/types.ts`.
-- [ ] **13. Auth client.** `AuthClient` interface, the Amplify
+- [x] **13. Auth client.** `AuthClient` interface, the Amplify
       implementation (configure, `signIn` with the new-password step,
       `confirmSignIn`, `resetPassword` and `confirmResetPassword`, the
       current user's `name`, sign-out, the ID token), and a fake for tests.
   - Tests first: Vitest for the Amplify adapter, with `aws-amplify/auth`
     mocked, covering each sign-in `nextStep` mapping.
   - Files: `src/lib/auth/*`.
-- [ ] **14. Session store and guard.** `session.svelte.ts` (state, sign-in
+- [x] **14. Session store and guard.** `session.svelte.ts` (state, sign-in
       steps, sign-out) and a root-layout guard redirecting to
       `/login?next=<path>`; `next` must be a same-origin path.
   - Tests first: Vitest for the store transitions and the `next`
     sanitiser.
   - Files: `src/lib/stores/session.svelte.ts`, `src/routes/+layout.ts` or
     `+layout.svelte`.
-- [ ] **15. Login and home pages.** `/login` with sign-in, new-password and
+- [x] **15. Login and home pages.** `/login` with sign-in, new-password and
       forgot-password steps (labelled fields, error text, keyboard
       submission), and `/` showing `Hello, <name>` and **Sign out**. All
       text in `en.ts`.
@@ -176,7 +176,7 @@ deployment".
     axe checks, on desktop and phone.
   - Files: `src/routes/login/+page.svelte`, `src/routes/+page.svelte`,
     `src/lib/i18n/en.ts`, `tests/e2e/*`.
-- [ ] **16. Deploy test (human), then verify.** Run `make deploy-test`, then
+- [x] **16. Deploy test (human), then verify.** Run `make deploy-test`, then
       `make create-user ENV=test …`. You check the "You can" list on the test
       host, including on a phone; I check headers and `/api/health` with
       `curl`.
