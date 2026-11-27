@@ -125,7 +125,7 @@ Branches from PR 0.1's branch (or `main` once 0.1 is merged).
       auto-merge for passing patch and minor updates.
   - Files: `.github/dependabot.yml`,
     `.github/workflows/dependabot-automerge.yml`.
-- [ ] **11. Branch protection on `main`.** Require the `pr-checks` and
+- [x] **11. Branch protection on `main`.** Require the `pr-checks` and
       `security` jobs to pass, and require a PR. Applied with `gh api` after
       the workflows have run once, so the check names exist. **I'll ask you
       before running it**, since it changes repo settings.
