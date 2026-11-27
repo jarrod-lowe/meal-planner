@@ -8,6 +8,8 @@ variables {
   github_owner      = "example-owner"
   github_repo       = "meal-planner"
   oidc_provider_arn = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
+  # GitHub's immutable subject: owner and repository IDs, not just names.
+  github_oidc_subject_prefix = "repo:example-owner@111/meal-planner@222"
 }
 
 run "roles_are_named_per_access_level" {
@@ -36,7 +38,7 @@ run "ro_trusts_only_the_prod_ro_environment" {
         Condition = {
           StringEquals = {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-            "token.actions.githubusercontent.com:sub" = "repo:example-owner/meal-planner:environment:prod-ro"
+            "token.actions.githubusercontent.com:sub" = "repo:example-owner@111/meal-planner@222:environment:prod-ro"
           }
         }
       },
@@ -57,7 +59,7 @@ run "rw_trusts_only_the_prod_rw_environment" {
         Condition = {
           StringEquals = {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-            "token.actions.githubusercontent.com:sub" = "repo:example-owner/meal-planner:environment:prod-rw"
+            "token.actions.githubusercontent.com:sub" = "repo:example-owner@111/meal-planner@222:environment:prod-rw"
           }
         }
       },

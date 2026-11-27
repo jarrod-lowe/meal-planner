@@ -17,3 +17,8 @@ variable "oidc_provider_arn" {
   description = "ARN of the account's GitHub Actions OIDC provider"
   type        = string
 }
+
+variable "github_oidc_subject_prefix" {
+  description = "The repository's OIDC `sub` prefix. This repository uses GitHub's immutable subject (`repo:<owner>@<owner id>/<repo>@<repo id>`), which survives renames."
+  type        = string
+}

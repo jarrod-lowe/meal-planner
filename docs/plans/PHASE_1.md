@@ -183,17 +183,20 @@ deployment".
 
 ## PR 1.3: Prod pipeline
 
-- [ ] **17. `environment-prod-plan.yaml`.** On PRs: call `pr-checks.yaml` as
-      a reusable workflow, then `dflook/terraform-plan` for prod in the
-      `prod-ro` environment, posting the plan as a comment. Skipped for
-      Dependabot.
+- [x] **17. `environment-prod-plan.yaml`.** On PRs: `dflook/terraform-plan`
+      for prod in the `prod-ro` environment (check `terraform-plan-prod`),
+      posting the plan as a comment. It runs alongside `pr-checks.yaml`
+      rather than calling it, so the required `test` check keeps its name.
+      Skipped for Dependabot. Terraform is pinned exactly in
+      `_shared/main.tf`, and `make validate` checks it matches
+      `.terraform-version`.
   - Files: `.github/workflows/environment-prod-plan.yaml`,
-    `.github/workflows/pr-checks.yaml` (`workflow_call`).
-- [ ] **18. `environment-prod-deploy.yaml`.** On push to `main`: the checks,
+    `.github/workflows/pr-checks.yaml` (`workflow_call`, for the deploy).
+- [x] **18. `environment-prod-deploy.yaml`.** On push to `main`: the checks,
       then `dflook/terraform-apply` (`prod-rw`), then `make push-ui ENV=prod`
       with the built `VITE_*` from the outputs.
   - Files: `.github/workflows/environment-prod-deploy.yaml`.
-- [ ] **19. Required checks.** Add the prod plan check to branch protection.
+- [x] **19. Required checks.** Add the prod plan check to branch protection.
       I'll ask before running it.
 - [ ] **20. Prod users (human).** After the first prod deploy,
       `make create-user ENV=prod …` and check both hosts.

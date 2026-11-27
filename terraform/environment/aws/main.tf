@@ -29,6 +29,11 @@ variable "github_repo" {
   type        = string
 }
 
+variable "github_oidc_subject_prefix" {
+  description = "The repository's OIDC `sub` prefix, from GitHub's OIDC customisation API (Make looks it up)"
+  type        = string
+}
+
 provider "aws" {
   default_tags {
     tags = {
@@ -52,6 +57,8 @@ module "iac_roles" {
   github_owner      = var.github_owner
   github_repo       = var.github_repo
   oidc_provider_arn = data.aws_iam_openid_connect_provider.github.arn
+
+  github_oidc_subject_prefix = var.github_oidc_subject_prefix
 }
 
 output "github_oidc_provider_arn" {

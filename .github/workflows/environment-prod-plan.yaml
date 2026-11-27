@@ -1,0 +1,78 @@
+name: Environment prod - plan
+
+# Plans prod for every PR and posts the plan as a PR comment.
+# environment-prod-deploy.yaml applies that plan once the PR is merged. The
+# lint, typecheck and test checks run in pr-checks.yaml alongside this
+# workflow, not from it, so a PR runs them once.
+
+on:
+  pull_request:
+
+# Superseded plans wait rather than being cancelled, so a cancelled run never
+# leaves the state lock behind. A newer pending run replaces an older one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  terraform-plan-prod:
+    # Branch protection will require this check by name; keep it stable.
+    name: terraform-plan-prod
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: prod-ro
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+
+    # Dependabot runs can't read environment secrets, so they can't plan.
+    # A Dependabot PR that doesn't touch terraform/ can't change prod, so the
+    # check passes. One that does fails here: a human pushes a commit to its
+    # branch, which re-runs this workflow with real credentials and posts a
+    # plan to review. Auto-merge skips Terraform updates.
+    steps:
+      - name: Check a Dependabot PR doesn't need a plan
+        if: github.actor == 'dependabot[bot]'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          gh pr view "$PR_URL" --json files --jq '.files[].path' > changed-files.txt
+          if grep -q '^terraform/' changed-files.txt; then
+            echo "::error::This Dependabot PR changes terraform/, which needs a prod plan Dependabot can't make. Push a commit to this branch (an empty one is fine) to plan it, review the plan, then merge by hand."
+            exit 1
+          fi
+          echo "No Terraform changes; skipping the prod plan for this Dependabot PR."
+
+      - name: Checkout
+        if: github.actor != 'dependabot[bot]'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Configure AWS credentials
+        if: github.actor != 'dependabot[bot]'
+        uses: aws-actions/configure-aws-credentials@45666896f5d8e0f10ae255413f3a4cdd03bdc8f5 # v6.3.1
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # The Terraform version comes from the root module's required_version,
+      # which `make validate` keeps equal to .terraform-version. The action
+      # inits in its own data directory, so it leaves no .terraform behind.
+      - name: Terraform plan
+        if: github.actor != 'dependabot[bot]'
+        uses: dflook/terraform-plan@a96e6b967241380e532d9059f275b87a1a4060cb # v3.1.3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          path: terraform/environment/prod
+          label: prod
+          # Must match environment-prod-deploy.yaml, or the apply can't find
+          # this plan.
+          backend_config: |
+            bucket=${{ vars.STATE_BUCKET }}
+            key=meal-planner/prod/terraform.tfstate
+            region=${{ vars.AWS_REGION }}

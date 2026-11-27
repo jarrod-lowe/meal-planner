@@ -1,5 +1,5 @@
 .PHONY: help install dev build lint check test test-unit test-go test-e2e format validate gofmt-check clean \
-	terraform-fmt-check test-terraform trivy lock setup-state setup-aws setup-github \
+	terraform-fmt-check terraform-version-check test-terraform trivy lock setup-state setup-aws setup-github \
 	env-local build-ui push-ui deploy-test create-user
 
 default: help
@@ -35,6 +35,10 @@ AWS_ACCOUNT = $(eval AWS_ACCOUNT := $(shell $(AWS_SHELL_ENV) AWS_REGION=$(AWS_RE
 STATE_BUCKET = $(PROJECT)-iac-state-$(AWS_ACCOUNT)
 GITHUB_OWNER ?= $(eval GITHUB_OWNER := $(shell gh repo view --json owner -q .owner.login 2>/dev/null))$(GITHUB_OWNER)
 GITHUB_REPO ?= $(eval GITHUB_REPO := $(shell gh repo view --json name -q .name 2>/dev/null))$(GITHUB_REPO)
+# The OIDC `sub` prefix the CI roles trust. This repository uses GitHub's
+# immutable subject (`repo:<owner>@<id>/<repo>@<id>`), so ask GitHub rather
+# than building it from names; fall back to the classic form.
+GITHUB_OIDC_SUBJECT_PREFIX ?= $(eval GITHUB_OIDC_SUBJECT_PREFIX := $(or $(shell gh api repos/$(GITHUB_OWNER)/$(GITHUB_REPO)/actions/oidc/customization/sub --jq '.sub_claim_prefix // empty' 2>/dev/null),repo:$(GITHUB_OWNER)/$(GITHUB_REPO)))$(GITHUB_OIDC_SUBJECT_PREFIX)
 
 # Stops a recipe early when the AWS account can't be looked up.
 require-aws = $(if $(AWS_ACCOUNT),,$(error Can't find the AWS account. Run `aws sso login --profile $(AWS_PROFILE)`))
@@ -95,6 +99,7 @@ terraform/environment/%/tfplan: terraform/environment/%/.terraform terraform/env
 	TF_VAR_state_bucket=$(STATE_BUCKET) \
 	TF_VAR_github_owner=$(GITHUB_OWNER) \
 	TF_VAR_github_repo=$(GITHUB_REPO) \
+	TF_VAR_github_oidc_subject_prefix='$(GITHUB_OIDC_SUBJECT_PREFIX)' \
 	terraform plan -input=false -out=tfplan
 
 # Apply the plan if there is one, then remove it, so the next run plans again.
@@ -221,6 +226,16 @@ validate-%: terraform/environment/%/.init-local
 terraform-fmt-check:
 	terraform fmt -check -recursive -diff terraform
 
+# CI's dflook actions take the Terraform version from the root module's
+# `required_version`, ahead of .terraform-version, so the app environments pin
+# it exactly. Fails when the pin and .terraform-version disagree.
+TF_VERSION_FILE := .terraform-version
+TF_PINNED_ROOT := terraform/environment/_shared/main.tf
+terraform-version-check:
+	@version=`cat $(TF_VERSION_FILE)`; \
+	grep -qF "required_version = \"$$version\"" $(TF_PINNED_ROOT) || \
+		{ echo "$(TF_PINNED_ROOT) must set required_version = \"$$version\" (from $(TF_VERSION_FILE))."; exit 1; }
+
 # `terraform test` (mocked providers, plan only) for one module or environment.
 test-terraform/%: %/.init-local
 	cd $* && $(TF_LOCAL) test
@@ -299,7 +314,7 @@ format: install
 	terraform fmt -recursive terraform
 
 # Formatting checks, and `terraform validate` for every environment.
-validate: install gofmt-check terraform-fmt-check $(addprefix validate-,$(TF_ENVS))
+validate: install gofmt-check terraform-fmt-check terraform-version-check $(addprefix validate-,$(TF_ENVS))
 	pnpm format:check
 
 # ============================================
