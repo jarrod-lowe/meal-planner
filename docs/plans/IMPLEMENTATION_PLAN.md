@@ -110,6 +110,11 @@ You can:
     workflows
 - **Make targets:** `setup-state`, `setup-aws` and `setup-github`, plus
   `validate` and `format` for Terraform.
+- **Read-only access for agents:**
+  - a `meal-planner-ro` IAM role with `ReadOnlyAccess`
+  - a matching `meal-planner-ro` profile in `~/.aws/config` that assumes it.
+    `make setup-aws` prints the snippet, and the human adds it.
+  - This is the profile AGENTS.md tells agents to use.
 - **Security workflow:** the Trivy IaC scan joins `security.yaml`.
 
 ### PR 1.2: App infrastructure and login
