@@ -11,7 +11,15 @@ export default defineConfig({
           filename.split(/[/\\]/).includes('node_modules') ? undefined : true
       },
       // Client-only SPA: every unknown path serves index.html (DESIGN §7.1).
-      adapter: adapter({ fallback: 'index.html' })
+      adapter: adapter({ fallback: 'index.html' }),
+      // index.html has an inline bootstrap <script> that changes every build,
+      // so CloudFront's fixed CSP header can't hash it and allows inline
+      // scripts. Kit adds this policy, with the script's hash, as a <meta> tag
+      // in index.html. Browsers enforce both, so only the bootstrap runs.
+      csp: {
+        mode: 'hash',
+        directives: { 'script-src': ['self'] }
+      }
     })
   ],
   test: {

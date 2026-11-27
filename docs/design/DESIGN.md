@@ -814,6 +814,12 @@ pieces below.
   - `Referrer-Policy: strict-origin-when-cross-origin`
   - a CSP allowing `'self'` plus `cognito-idp.ap-southeast-2.amazonaws.com`
     for `connect-src`
+  - `X-Frame-Options: DENY`
+- **Inline bootstrap script:** `index.html` has SvelteKit's inline bootstrap
+  `<script>`, which changes every build. The header's `script-src` therefore
+  allows inline scripts, and SvelteKit's `csp` option (hash mode) adds a
+  second CSP as a `<meta>` tag with that script's hash. Browsers enforce both,
+  so only the hashed bootstrap runs.
 - **Caching of uploads:** assets under `/_app/immutable/` are uploaded with
   `Cache-Control: public, max-age=31536000, immutable`. `index.html` is
   uploaded with `no-cache`.

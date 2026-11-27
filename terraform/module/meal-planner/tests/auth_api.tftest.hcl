@@ -22,6 +22,13 @@ mock_provider "aws" {
 mock_provider "aws" {
   alias           = "us-east-1"
   override_during = plan
+
+  # Known at plan, so the validation records' for_each can be planned.
+  mock_resource "aws_acm_certificate" {
+    defaults = {
+      arn = "arn:aws:acm:us-east-1:123456789012:certificate/example"
+    }
+  }
 }
 
 variables {
