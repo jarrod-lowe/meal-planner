@@ -245,7 +245,7 @@ terraform/
     meal-planner/      # CloudFront, S3, ACM (us-east-1), Route 53 record, Cognito,
                        # API Gateway + openapi.yaml, Lambdas, DynamoDB
     lambda/            # reusable Lambda module
-    oidc/ iac-roles/ state-infrastructure/
+    iac-roles/ state-infrastructure/   # the GitHub OIDC provider is looked up, not managed
   environment/
     state/ aws/ github/    # one-off bootstrap
     test/                  # meal-planner-test.wildsea.lowe.kiwi
