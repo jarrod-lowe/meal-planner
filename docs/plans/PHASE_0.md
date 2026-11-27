@@ -85,14 +85,14 @@ Each item ends with `make test` green and a commit.
       helper) so there is something real to test and vet.
   - Tests first: `backend/internal/httpx/httpx_test.go`.
   - Files: `backend/go.mod`, `backend/internal/httpx/*.go`.
-- [ ] **6. Playwright.** Config with a `webServer` starting the dev server,
+- [x] **6. Playwright.** Config with a `webServer` starting the dev server,
       desktop and phone (Pixel 7) Chromium projects, and
       `@axe-core/playwright`. One test: the placeholder page loads, shows the
       i18n title, and has no axe violations.
   - Tests first: `tests/e2e/home.test.ts`, failing until the page title
     matches.
   - Files: `playwright.config.ts`, `tests/e2e/home.test.ts`.
-- [ ] **7. Makefile.** `install`, `dev` (warns if `pgrep -f vite` finds one
+- [x] **7. Makefile.** `install`, `dev` (warns if `pgrep -f vite` finds one
       running), `lint` (ESLint, Prettier check, markdownlint, cspell,
       `go vet`, `gofmt -l`), `check` (`svelte-check`), `test-unit` (Vitest),
       `test-go`, `test` (lint + check + test-unit + test-go), `test-e2e`,

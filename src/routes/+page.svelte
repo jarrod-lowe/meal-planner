@@ -2,6 +2,10 @@
   import { t } from '#lib/i18n/en.js';
 </script>
 
+<svelte:head>
+  <title>{t('app.title')}</title>
+</svelte:head>
+
 <main>
   <h1>{t('app.title')}</h1>
   <p>{t('home.placeholder')}</p>
