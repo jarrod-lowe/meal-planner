@@ -73,48 +73,48 @@ deployment".
 
 ## Prerequisites (human)
 
-- [ ] Add the `meal-planner` and `meal-planner-ro` profiles to
+- [x] Add the `meal-planner` and `meal-planner-ro` profiles to
       `~/.aws/config`: copies of `dnd-planner` and `dnd-planner-ro`.
 - [ ] Run each `make setup-*` and `make deploy-test` when asked. Agents can't
       apply with admin credentials.
 
 ## PR 1.1: Terraform bootstrap
 
-- [ ] **1. Make and Terraform plumbing.** Makefile header (`PROJECT`,
+- [x] **1. Make and Terraform plumbing.** Makefile header (`PROJECT`,
       `AWS_PROFILE ?= meal-planner`, account and region lookup, GitHub
       owner), init, plan and apply stamp rules, `validate`, `format` and
       `test-terraform` for every env. Copy `terraform/scripts/` helpers.
   - Tests first: `make validate` fails on a deliberately broken `.tf`, then
     passes.
   - Files: `Makefile`, `terraform/scripts/ensure-state-bucket.sh`.
-- [ ] **2. State environment.** `module/state-infrastructure` and
+- [x] **2. State environment.** `module/state-infrastructure` and
       `environment/state`: the bucket, encrypted, versioned, private, TLS
       only.
   - Tests first: `terraform test` asserting the encryption, versioning,
     public access block and TLS-only policy.
   - Files: `terraform/module/state-infrastructure/*`,
     `terraform/environment/state/*`.
-- [ ] **3. AWS environment.** `module/iac-roles` (ro and rw roles, OIDC trust
+- [x] **3. AWS environment.** `module/iac-roles` (ro and rw roles, OIDC trust
       per GitHub environment) and `environment/aws` (OIDC provider as a data
       source).
   - Tests first: `terraform test` asserting the trust conditions (repo and
     environment `sub`, audience) and that ro has no `sts:AssumeRole`.
   - Files: `terraform/module/iac-roles/*`, `terraform/environment/aws/*`.
-- [ ] **4. GitHub environment.** Environments `prod-ro` and `prod-rw` (rw
+- [x] **4. GitHub environment.** Environments `prod-ro` and `prod-rw` (rw
       limited to protected branches), with variables (`AWS_ACCOUNT`,
       `AWS_REGION`, `STATE_BUCKET`) and the `AWS_ROLE` secret from the role
       outputs. Make supplies `GITHUB_TOKEN` from `gh auth token`.
   - Tests first: `terraform test` asserting the environment names and the
     branch policy.
   - Files: `terraform/environment/github/*`.
-- [ ] **5. Trivy and `make test`.** Trivy IaC scan in `security.yaml`;
+- [x] **5. Trivy and `make test`.** Trivy IaC scan in `security.yaml`;
       `make test` runs `test-terraform`, plus Trivy when it's installed;
       `pr-checks.yaml` installs Terraform.
   - Files: `.github/workflows/security.yaml`,
     `.github/workflows/pr-checks.yaml`, `Makefile`.
-- [ ] **6. Docs.** IMPLEMENTATION_PLAN PR 1.1 (SSO ro profile) and the AGENTS
+- [x] **6. Docs.** IMPLEMENTATION_PLAN PR 1.1 (SSO ro profile) and the AGENTS
       commands table.
-- [ ] **7. Apply (human).** `make setup-state`, `setup-aws`, `setup-github`.
+- [x] **7. Apply (human).** `make setup-state`, `setup-aws`, `setup-github`.
       I then verify read-only with
       `aws iam get-role --profile meal-planner-ro`.
 

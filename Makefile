@@ -19,6 +19,9 @@ GOFMT := $(shell cd backend && go env GOROOT)/bin/gofmt
 AWS_PROFILE ?= meal-planner
 ifeq ($(or $(CI),$(AWS_ACCESS_KEY_ID)),)
 export AWS_PROFILE
+# GNU Make before 4.4 (macOS ships 3.81) doesn't pass exported variables to
+# $(shell ...), so lookups set the profile themselves.
+AWS_SHELL_ENV := AWS_PROFILE=$(AWS_PROFILE)
 endif
 AWS_REGION ?= ap-southeast-2
 export AWS_REGION
@@ -27,7 +30,7 @@ export AWS_PAGER
 
 # These call AWS or GitHub, so they are looked up only when a recipe uses them
 # (never by `make test`), then cached for the rest of the run.
-AWS_ACCOUNT = $(eval AWS_ACCOUNT := $(shell aws sts get-caller-identity --query Account --output text 2>/dev/null))$(AWS_ACCOUNT)
+AWS_ACCOUNT = $(eval AWS_ACCOUNT := $(shell $(AWS_SHELL_ENV) AWS_REGION=$(AWS_REGION) aws sts get-caller-identity --query Account --output text 2>/dev/null))$(AWS_ACCOUNT)
 STATE_BUCKET = $(PROJECT)-iac-state-$(AWS_ACCOUNT)
 GITHUB_OWNER ?= $(eval GITHUB_OWNER := $(shell gh repo view --json owner -q .owner.login 2>/dev/null))$(GITHUB_OWNER)
 GITHUB_REPO ?= $(eval GITHUB_REPO := $(shell gh repo view --json name -q .name 2>/dev/null))$(GITHUB_REPO)
