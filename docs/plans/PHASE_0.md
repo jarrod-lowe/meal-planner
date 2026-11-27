@@ -21,8 +21,15 @@ references: DESIGN §6 (backend layout), §7.1 (frontend setup), §7.6
 - **Versions:** the latest stable release of every tool and dependency at the
   time of writing: pnpm 12 (pinned via `packageManager`), Node 26 LTS
   (`.nvmrc` and `engines`), Go 1.27 (the `go` and `toolchain` lines in
-  `backend/go.mod`), SvelteKit 3, Svelte 5, Vite 8, TypeScript 7 and ESLint
+  `backend/go.mod`), SvelteKit 3, Svelte 5, Vite 8, TypeScript 6 and ESLint
   10. Dependabot keeps them current.
+- **TypeScript 6, not 7:** TypeScript 7 has no programmatic API yet, and
+  SvelteKit 3, `svelte-check` and `typescript-eslint` all require 6. The
+  TypeScript 7 release notes say Svelte projects should stay on 6 for now.
+  Dependabot ignores TypeScript major updates until that changes.
+- **SvelteKit 3 config** lives in `vite.config.ts`; there is no
+  `svelte.config.js`.
+- **Prettier skips Markdown;** markdownlint and cSpell check it instead.
 - **Doc checks:** `markdownlint-cli2` and `cspell` run as part of `make lint`,
   so the AGENTS.md docs rule is enforced, not just stated.
 - **Playwright:** Chromium only for now, with a desktop and a phone project.
@@ -36,20 +43,20 @@ references: DESIGN §6 (backend layout), §7.1 (frontend setup), §7.6
 
 Each item ends with `make test` green and a commit.
 
-- [ ] **1. Repo hygiene.** `.gitignore` (node, SvelteKit, Playwright, Go
+- [x] **1. Repo hygiene.** `.gitignore` (node, SvelteKit, Playwright, Go
       build output, `.env.*`), `.editorconfig`, `.prettierrc` and
-      `.prettierignore`, `.markdownlint-cli2.jsonc`, `cspell.json` reading the
-      words from `.vscode/settings.json`.
+      `.prettierignore`, `.markdownlint-cli2.jsonc`, and `cspell.config.js`
+      reading the words from `.vscode/settings.json`.
   - Tests first: none (config only). Verify `markdownlint-cli2` and `cspell`
     pass on the existing docs.
-- [ ] **2. SvelteKit skeleton.** pnpm, SvelteKit with Svelte 5,
+- [x] **2. SvelteKit skeleton.** pnpm, SvelteKit with Svelte 5,
       `adapter-static` with `fallback: 'index.html'`, strict TypeScript, root
       `+layout.ts` with `ssr = false` and `prerender = false`, and a
       placeholder `+page.svelte`. ESLint (flat config with
       `eslint-plugin-svelte` and `typescript-eslint`), Prettier with the Svelte
       plugin, `svelte-check`.
   - Tests first: none yet; `pnpm check`, `pnpm lint` and `pnpm build` pass.
-  - Files: `package.json`, `pnpm-lock.yaml`, `svelte.config.js`,
+  - Files: `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`,
     `vite.config.ts`, `tsconfig.json`, `eslint.config.js`, `src/app.html`,
     `src/app.d.ts`, `src/routes/+layout.ts`, `src/routes/+page.svelte`.
 - [ ] **3. i18n and theme.** `src/lib/i18n/en.ts` as a typed message object
@@ -71,7 +78,7 @@ Each item ends with `make test` green and a commit.
   - Tests first: a temporary engine file with a forbidden import makes
     `pnpm lint` fail; then remove it.
   - Files: `eslint.config.js`.
-- [ ] **5. Go skeleton.** `backend/go.mod`, `backend/cmd/.gitkeep`,
+- [x] **5. Go skeleton.** `backend/go.mod`, `backend/cmd/.gitkeep`,
       `backend/internal/` with a tiny `httpx` package (a `JSON` response
       helper) so there is something real to test and vet.
   - Tests first: `backend/internal/httpx/httpx_test.go`.

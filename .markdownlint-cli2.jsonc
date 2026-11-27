@@ -1,0 +1,15 @@
+{
+  // Rules: https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+  "config": {
+    "default": true,
+    // Wrap prose at 80; tables and code blocks may run longer.
+    "MD013": { "line_length": 80, "tables": false, "code_blocks": false }
+  },
+  "ignores": [
+    "node_modules/**",
+    "build/**",
+    ".svelte-kit/**",
+    "test-results/**",
+    "playwright-report/**"
+  ]
+}

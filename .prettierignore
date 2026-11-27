@@ -1,0 +1,17 @@
+# Lockfiles
+pnpm-lock.yaml
+package-lock.json
+
+# Build output
+build/
+.svelte-kit/
+
+# Test output
+test-results/
+playwright-report/
+
+# Go is formatted by gofmt
+backend/
+
+# Markdown is checked by markdownlint-cli2 and cspell instead
+*.md
