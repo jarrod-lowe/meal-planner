@@ -23,3 +23,18 @@ playwright/.cache/
 # OS
 .DS_Store
 Thumbs.db
+
+# Terraform (lock files in environment dirs are committed; module test
+# lock files are not)
+.terraform/
+.terraform-local/
+terraform/module/*/.terraform.lock.hcl
+tfplan
+*.tfstate
+*.tfstate.*
+.stamp
+.init-local
+.apply
+terraform.tfvars
+!*.tfvars.example
+output.json

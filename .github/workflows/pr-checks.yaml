@@ -43,8 +43,22 @@ jobs:
           # backend/go.sum` once the first dependency lands.
           cache: false
 
-      # `make test` runs `pnpm install --frozen-lockfile` first.
-      - name: Lint, typecheck, unit and Go tests
+      # .terraform-version is the one place the Terraform version is set.
+      - name: Read Terraform version
+        id: terraform-version
+        run: echo "version=$(< .terraform-version)" >> "$GITHUB_OUTPUT"
+
+      # No wrapper, so Make sees Terraform's own exit codes and output.
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ steps.terraform-version.outputs.version }}
+          terraform_wrapper: false
+
+      # `make test` runs `pnpm install --frozen-lockfile` first. Its Terraform
+      # tests mock their providers, so no AWS credentials are needed. Trivy
+      # isn't installed here; security.yaml runs it.
+      - name: Lint, typecheck, validate, unit, Go and Terraform tests
         run: make test
 
       - name: Get Playwright version

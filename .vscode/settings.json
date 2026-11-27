@@ -1,5 +1,6 @@
 {
   "cSpell.words": [
+    "dflook",
     "dynamodbav",
     "fromjson",
     "gofmt",
@@ -12,6 +13,9 @@
     "prerender",
     "refetched",
     "refetches",
+    "tfstate",
+    "tftest",
+    "tfvars",
     "wildsea"
   ]
 }
