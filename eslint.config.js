@@ -46,6 +46,20 @@ export default defineConfig(
     }
   },
   {
+    // CloudFront Functions are plain scripts (cloudfront-js-2.0): no modules,
+    // and CloudFront calls the top-level `handler`. They aren't in the
+    // TypeScript project, so type-aware rules are off.
+    files: ['terraform/**/*.js'],
+    extends: [ts.configs.disableTypeChecked],
+    languageOptions: {
+      parserOptions: { projectService: false }
+    },
+    rules: {
+      'no-unused-vars': ['error', { varsIgnorePattern: '^handler$' }],
+      '@typescript-eslint/no-unused-vars': ['error', { varsIgnorePattern: '^handler$' }]
+    }
+  },
+  {
     files: ['src/lib/engine/**'],
     rules: {
       'no-restricted-imports': [

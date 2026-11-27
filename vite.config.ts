@@ -15,7 +15,8 @@ export default defineConfig({
     })
   ],
   test: {
-    include: ['src/**/*.test.ts'],
+    // terraform/: the CloudFront Function's tests sit next to it.
+    include: ['src/**/*.test.ts', 'terraform/**/*.test.ts'],
     environment: 'node'
   }
 });
