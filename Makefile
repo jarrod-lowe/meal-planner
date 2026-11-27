@@ -203,12 +203,16 @@ create-user: $(if $(and $(EMAIL),$(NAME)),$(env-output-json))
 	$(require-env)
 	$(if $(EMAIL),,$(error Set EMAIL=<their email address>))
 	$(if $(NAME),,$(error Set NAME="<their name>"))
+	@mkdir -p build
+	jq -nc --arg email "$(EMAIL)" --arg name "$(NAME)" \
+		'[{Name: "email", Value: $$email}, {Name: "email_verified", Value: "true"}, {Name: "name", Value: $$name}]' \
+		> build/user-attributes.json
 	aws cognito-idp admin-create-user \
 		--user-pool-id $(call tf-output,user_pool_id) \
 		--username "$(EMAIL)" \
-		--user-attributes "$$(jq -nc --arg email "$(EMAIL)" --arg name "$(NAME)" \
-			'[{Name: "email", Value: $$email}, {Name: "email_verified", Value: "true"}, {Name: "name", Value: $$name}]')" \
+		--user-attributes file://build/user-attributes.json \
 		--desired-delivery-mediums EMAIL
+	@rm -f build/user-attributes.json
 
 # Validate one environment, with no backend and no credentials.
 validate-%: terraform/environment/%/.init-local
