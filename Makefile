@@ -97,13 +97,15 @@ terraform/environment/%/tfplan: terraform/environment/%/.terraform terraform/env
 	terraform plan -input=false -out=tfplan
 
 # Apply the plan if there is one, then remove it, so the next run plans again.
+# The `.apply` stamp is written only after a successful apply; on failure it's
+# removed, so the next run retries instead of reporting success.
 terraform/environment/%/.apply: terraform/environment/%/tfplan
 	cd terraform/environment/$* && \
 	if [ -s tfplan ]; then \
 		terraform apply -input=false -auto-approve tfplan || EXIT_CODE=$$?; \
 	fi; \
 	rm -f tfplan; \
-	touch .apply; \
+	if [ $${EXIT_CODE:-0} -eq 0 ]; then touch .apply; else rm -f .apply; fi; \
 	exit $${EXIT_CODE:-0}
 
 # The GitHub provider reads GITHUB_TOKEN. Exported only for these targets, so
