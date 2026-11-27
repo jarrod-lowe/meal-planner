@@ -35,6 +35,10 @@ AWS_ACCOUNT = $(eval AWS_ACCOUNT := $(shell $(AWS_SHELL_ENV) AWS_REGION=$(AWS_RE
 STATE_BUCKET = $(PROJECT)-iac-state-$(AWS_ACCOUNT)
 GITHUB_OWNER ?= $(eval GITHUB_OWNER := $(shell gh repo view --json owner -q .owner.login 2>/dev/null))$(GITHUB_OWNER)
 GITHUB_REPO ?= $(eval GITHUB_REPO := $(shell gh repo view --json name -q .name 2>/dev/null))$(GITHUB_REPO)
+# The OIDC `sub` prefix the CI roles trust. This repository uses GitHub's
+# immutable subject (`repo:<owner>@<id>/<repo>@<id>`), so ask GitHub rather
+# than building it from names; fall back to the classic form.
+GITHUB_OIDC_SUBJECT_PREFIX ?= $(eval GITHUB_OIDC_SUBJECT_PREFIX := $(or $(shell gh api repos/$(GITHUB_OWNER)/$(GITHUB_REPO)/actions/oidc/customization/sub --jq '.sub_claim_prefix // empty' 2>/dev/null),repo:$(GITHUB_OWNER)/$(GITHUB_REPO)))$(GITHUB_OIDC_SUBJECT_PREFIX)
 
 # Stops a recipe early when the AWS account can't be looked up.
 require-aws = $(if $(AWS_ACCOUNT),,$(error Can't find the AWS account. Run `aws sso login --profile $(AWS_PROFILE)`))
@@ -95,6 +99,7 @@ terraform/environment/%/tfplan: terraform/environment/%/.terraform terraform/env
 	TF_VAR_state_bucket=$(STATE_BUCKET) \
 	TF_VAR_github_owner=$(GITHUB_OWNER) \
 	TF_VAR_github_repo=$(GITHUB_REPO) \
+	TF_VAR_github_oidc_subject_prefix='$(GITHUB_OIDC_SUBJECT_PREFIX)' \
 	terraform plan -input=false -out=tfplan
 
 # Apply the plan if there is one, then remove it, so the next run plans again.

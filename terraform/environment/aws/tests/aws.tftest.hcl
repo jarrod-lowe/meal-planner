@@ -11,9 +11,10 @@ mock_provider "aws" {
 }
 
 variables {
-  project      = "meal-planner"
-  github_owner = "example-owner"
-  github_repo  = "meal-planner"
+  project                    = "meal-planner"
+  github_owner               = "example-owner"
+  github_repo                = "meal-planner"
+  github_oidc_subject_prefix = "repo:example-owner@111/meal-planner@222"
 }
 
 # dnd-planner's state owns the account's GitHub OIDC provider, so this
