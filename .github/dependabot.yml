@@ -1,0 +1,50 @@
+version: 2
+updates:
+  # JavaScript/TypeScript dependencies (pnpm)
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    open-pull-requests-limit: 5
+    labels:
+      - 'dependabot'
+    groups:
+      npm-minor-and-patch:
+        update-types:
+          - 'minor'
+          - 'patch'
+    ignore:
+      # TypeScript 7 has no programmatic API yet, and SvelteKit, svelte-check
+      # and typescript-eslint need it. Stay on 6 until they support 7 (see
+      # docs/plans/PHASE_0.md, Decisions).
+      - dependency-name: 'typescript'
+        update-types:
+          - 'version-update:semver-major'
+
+  # Go modules
+  - package-ecosystem: 'gomod'
+    directory: '/backend'
+    schedule:
+      interval: 'weekly'
+    open-pull-requests-limit: 3
+    labels:
+      - 'dependabot'
+    groups:
+      gomod-minor-and-patch:
+        update-types:
+          - 'minor'
+          - 'patch'
+
+  # GitHub Actions
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    open-pull-requests-limit: 3
+    labels:
+      - 'dependabot'
+    groups:
+      actions-minor-and-patch:
+        update-types:
+          - 'minor'
+          - 'patch'
