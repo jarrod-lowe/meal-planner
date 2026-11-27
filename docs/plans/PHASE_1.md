@@ -176,7 +176,7 @@ deployment".
     axe checks, on desktop and phone.
   - Files: `src/routes/login/+page.svelte`, `src/routes/+page.svelte`,
     `src/lib/i18n/en.ts`, `tests/e2e/*`.
-- [ ] **16. Deploy test (human), then verify.** Run `make deploy-test`, then
+- [x] **16. Deploy test (human), then verify.** Run `make deploy-test`, then
       `make create-user ENV=test …`. You check the "You can" list on the test
       host, including on a phone; I check headers and `/api/health` with
       `curl`.
