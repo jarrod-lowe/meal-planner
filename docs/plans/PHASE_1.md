@@ -196,7 +196,7 @@ deployment".
       then `dflook/terraform-apply` (`prod-rw`), then `make push-ui ENV=prod`
       with the built `VITE_*` from the outputs.
   - Files: `.github/workflows/environment-prod-deploy.yaml`.
-- [ ] **19. Required checks.** Add the prod plan check to branch protection.
+- [x] **19. Required checks.** Add the prod plan check to branch protection.
       I'll ask before running it.
 - [ ] **20. Prod users (human).** After the first prod deploy,
       `make create-user ENV=prod …` and check both hosts.
