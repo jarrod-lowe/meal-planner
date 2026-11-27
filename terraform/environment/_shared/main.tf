@@ -3,7 +3,9 @@
 # local.host.
 
 terraform {
-  required_version = ">= 1.17"
+  # An exact pin, because CI's dflook actions take the version from here
+  # (ahead of .terraform-version). `make validate` checks the two match.
+  required_version = "1.17.2"
 
   required_providers {
     aws = {

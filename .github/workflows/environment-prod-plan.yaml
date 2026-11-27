@@ -1,0 +1,67 @@
+name: Environment prod - plan
+
+# Plans prod for every PR and posts the plan as a PR comment.
+# environment-prod-deploy.yaml applies that plan once the PR is merged. The
+# lint, typecheck and test checks run in pr-checks.yaml alongside this
+# workflow, not from it, so a PR runs them once.
+
+on:
+  pull_request:
+
+# Superseded plans wait rather than being cancelled, so a cancelled run never
+# leaves the state lock behind. A newer pending run replaces an older one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  terraform-plan-prod:
+    # Branch protection will require this check by name; keep it stable.
+    name: terraform-plan-prod
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: prod-ro
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+
+    # Dependabot runs can't read environment secrets, so they skip each step
+    # and the check still passes. A Terraform update from Dependabot is
+    # planned on the next human PR.
+    steps:
+      - name: Skip for Dependabot
+        if: github.actor == 'dependabot[bot]'
+        run: echo "Skipping the prod plan for a Dependabot PR (no access to environment secrets)."
+
+      - name: Checkout
+        if: github.actor != 'dependabot[bot]'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Configure AWS credentials
+        if: github.actor != 'dependabot[bot]'
+        uses: aws-actions/configure-aws-credentials@45666896f5d8e0f10ae255413f3a4cdd03bdc8f5 # v6.3.1
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # The Terraform version comes from the root module's required_version,
+      # which `make validate` keeps equal to .terraform-version. The action
+      # inits in its own data directory, so it leaves no .terraform behind.
+      - name: Terraform plan
+        if: github.actor != 'dependabot[bot]'
+        uses: dflook/terraform-plan@a96e6b967241380e532d9059f275b87a1a4060cb # v3.1.3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          path: terraform/environment/prod
+          label: prod
+          # Must match environment-prod-deploy.yaml, or the apply can't find
+          # this plan.
+          backend_config: |
+            bucket=${{ vars.STATE_BUCKET }}
+            key=meal-planner/prod/terraform.tfstate
+            region=${{ vars.AWS_REGION }}

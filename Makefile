@@ -1,5 +1,5 @@
 .PHONY: help install dev build lint check test test-unit test-go test-e2e format validate gofmt-check clean \
-	terraform-fmt-check test-terraform trivy lock setup-state setup-aws setup-github \
+	terraform-fmt-check terraform-version-check test-terraform trivy lock setup-state setup-aws setup-github \
 	env-local build-ui push-ui deploy-test create-user
 
 default: help
@@ -217,6 +217,16 @@ validate-%: terraform/environment/%/.init-local
 terraform-fmt-check:
 	terraform fmt -check -recursive -diff terraform
 
+# CI's dflook actions take the Terraform version from the root module's
+# `required_version`, ahead of .terraform-version, so the app environments pin
+# it exactly. Fails when the pin and .terraform-version disagree.
+TF_VERSION_FILE := .terraform-version
+TF_PINNED_ROOT := terraform/environment/_shared/main.tf
+terraform-version-check:
+	@version=`cat $(TF_VERSION_FILE)`; \
+	grep -qF "required_version = \"$$version\"" $(TF_PINNED_ROOT) || \
+		{ echo "$(TF_PINNED_ROOT) must set required_version = \"$$version\" (from $(TF_VERSION_FILE))."; exit 1; }
+
 # `terraform test` (mocked providers, plan only) for one module or environment.
 test-terraform/%: %/.init-local
 	cd $* && $(TF_LOCAL) test
@@ -295,7 +305,7 @@ format: install
 	terraform fmt -recursive terraform
 
 # Formatting checks, and `terraform validate` for every environment.
-validate: install gofmt-check terraform-fmt-check $(addprefix validate-,$(TF_ENVS))
+validate: install gofmt-check terraform-fmt-check terraform-version-check $(addprefix validate-,$(TF_ENVS))
 	pnpm format:check
 
 # ============================================

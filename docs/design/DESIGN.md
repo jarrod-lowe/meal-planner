@@ -873,9 +873,13 @@ Make targets follow dnd-planner. Terraform is only ever run through Make.
 
 ### GitHub Actions
 
-- **`environment-prod-plan.yaml`** (on pull request):
-  - lint, typecheck, unit tests and E2E tests
-  - `terraform plan` for prod, posted as a PR comment
+- **`pr-checks.yaml`** (on pull request, and reusable): lint, typecheck,
+  unit tests and E2E tests (`make test`, `make test-e2e`)
+- **`environment-prod-plan.yaml`** (on pull request, alongside
+  `pr-checks.yaml`): `terraform plan` for prod, posted as a PR comment.
+  Skipped for Dependabot, which can't read environment secrets. Terraform's
+  version comes from the app environments' exact `required_version`, which
+  `make validate` checks against `.terraform-version`.
 - **`environment-prod-deploy.yaml`** (on push to `main`):
   - the same tests
   - `terraform apply`, then the Lambda deploy, then the UI upload and
