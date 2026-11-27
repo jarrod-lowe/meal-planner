@@ -884,6 +884,9 @@ Make targets follow dnd-planner. Terraform is only ever run through Make.
   - the same tests
   - `terraform apply`, then the Lambda deploy, then the UI upload and
     invalidation
+  - the apply uses the plan approved on the merged PR, and fails if prod
+    would now change differently. A manual run plans and applies `main` as
+    it is.
 - **`security.yaml`:**
   - triggered on pull requests and weekly
   - Trivy IaC scan, `pnpm audit`, `govulncheck`
