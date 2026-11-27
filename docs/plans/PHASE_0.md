@@ -109,17 +109,17 @@ Then open PR 0.1 and run the Codex review loop.
 
 Branches from PR 0.1's branch (or `main` once 0.1 is merged).
 
-- [ ] **8. `pr-checks.yaml`.** On `pull_request`: checkout, pnpm and Node
+- [x] **8. `pr-checks.yaml`.** On `pull_request`: checkout, pnpm and Node
       setup with cache, Go setup, `make test`, then Playwright browsers and
       `make test-e2e`, uploading the report on failure. Actions pinned to
       commit SHAs.
   - Tests first: a throwaway PR commit with a failing Vitest test shows the
     check red; revert it.
   - Files: `.github/workflows/pr-checks.yaml`.
-- [ ] **9. `security.yaml`.** On `pull_request` and weekly:
+- [x] **9. `security.yaml`.** On `pull_request` and weekly:
       `pnpm audit --prod` and `govulncheck ./...`.
   - Files: `.github/workflows/security.yaml`.
-- [ ] **10. Dependabot.** `npm`, `gomod` (`/backend`) and `github-actions`,
+- [x] **10. Dependabot.** `npm`, `gomod` (`/backend`) and `github-actions`,
       weekly, with grouped minor and patch updates, plus
       `dependabot-automerge.yml` (adapted from dnd-planner) enabling
       auto-merge for passing patch and minor updates.

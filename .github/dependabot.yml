@@ -6,8 +6,6 @@ updates:
     schedule:
       interval: 'weekly'
     open-pull-requests-limit: 5
-    labels:
-      - 'dependabot'
     groups:
       npm-minor-and-patch:
         update-types:
@@ -20,29 +18,23 @@ updates:
       - dependency-name: 'typescript'
         update-types:
           - 'version-update:semver-major'
-
   # Go modules
   - package-ecosystem: 'gomod'
     directory: '/backend'
     schedule:
       interval: 'weekly'
     open-pull-requests-limit: 3
-    labels:
-      - 'dependabot'
     groups:
       gomod-minor-and-patch:
         update-types:
           - 'minor'
           - 'patch'
-
   # GitHub Actions
   - package-ecosystem: 'github-actions'
     directory: '/'
     schedule:
       interval: 'weekly'
     open-pull-requests-limit: 3
-    labels:
-      - 'dependabot'
     groups:
       actions-minor-and-patch:
         update-types:
