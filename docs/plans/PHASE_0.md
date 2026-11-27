@@ -29,6 +29,8 @@ references: DESIGN §6 (backend layout), §7.1 (frontend setup), §7.6
   Dependabot ignores TypeScript major updates until that changes.
 - **SvelteKit 3 config** lives in `vite.config.ts`; there is no
   `svelte.config.js`.
+- **Imports:** SvelteKit 3 removed `$lib`; code imports `src/lib` via the
+  `#lib` subpath import map in `package.json`.
 - **Prettier skips Markdown;** markdownlint and cSpell check it instead.
 - **Doc checks:** `markdownlint-cli2` and `cspell` run as part of `make lint`,
   so the AGENTS.md docs rule is enforced, not just stated.
@@ -59,7 +61,7 @@ Each item ends with `make test` green and a commit.
   - Files: `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`,
     `vite.config.ts`, `tsconfig.json`, `eslint.config.js`, `src/app.html`,
     `src/app.d.ts`, `src/routes/+layout.ts`, `src/routes/+page.svelte`.
-- [ ] **3. i18n and theme.** `src/lib/i18n/en.ts` as a typed message object
+- [x] **3. i18n and theme.** `src/lib/i18n/en.ts` as a typed message object
       with a `t()` helper (dotted keys, typed so unknown keys fail
       typecheck, `{name}` interpolation). `src/lib/theme.css` with colour,
       spacing and type tokens in light and dark (`prefers-color-scheme`).
@@ -72,9 +74,9 @@ Each item ends with `make test` green and a commit.
   - Files: `vitest.config` (in `vite.config.ts`), `src/lib/i18n/en.ts`,
     `src/lib/i18n/en.test.ts`, `src/lib/theme.css`,
     `src/routes/+layout.svelte`, `src/routes/+page.svelte`.
-- [ ] **4. Engine import guard.** An ESLint `no-restricted-imports` rule on
-      `src/lib/engine/**` blocking `svelte*`, `$app/*`, `$lib/api*`,
-      `$lib/stores*` and date libraries.
+- [x] **4. Engine import guard.** An ESLint `no-restricted-imports` rule on
+      `src/lib/engine/**` blocking `svelte*`, `$app/*`, `#lib/api*`,
+      `#lib/stores*` and date libraries.
   - Tests first: a temporary engine file with a forbidden import makes
     `pnpm lint` fail; then remove it.
   - Files: `eslint.config.js`.

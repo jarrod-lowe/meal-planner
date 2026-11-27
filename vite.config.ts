@@ -1,6 +1,6 @@
 import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   plugins: [
@@ -13,5 +13,9 @@ export default defineConfig({
       // Client-only SPA: every unknown path serves index.html (DESIGN §7.1).
       adapter: adapter({ fallback: 'index.html' })
     })
-  ]
+  ],
+  test: {
+    include: ['src/**/*.test.ts'],
+    environment: 'node'
+  }
 });
