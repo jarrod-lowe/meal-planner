@@ -852,7 +852,7 @@ Make targets follow dnd-planner. Terraform is only ever run through Make.
 | Target                                            | Does                                                                 |
 | ------------------------------------------------- | -------------------------------------------------------------------- |
 | `make dev`                                        | Vite dev server; proxies `/api` to the test environment's CloudFront |
-| `make test`                                       | Lint, typecheck, Vitest, Go tests                                    |
+| `make test`                                       | Lint, typecheck, validate, Vitest, Go and Terraform tests, Trivy     |
 | `make test-e2e`                                   | Playwright against the dev server                                    |
 | `make api-types`                                  | Regenerate TS types from `openapi.yaml`                              |
 | `make build`                                      | UI build + Lambda binaries                                           |

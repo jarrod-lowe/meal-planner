@@ -14,6 +14,8 @@
     "refetched",
     "refetches",
     "tfstate",
+    "tftest",
+    "tfvars",
     "wildsea"
   ]
 }

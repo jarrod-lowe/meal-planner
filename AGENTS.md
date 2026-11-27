@@ -93,11 +93,14 @@ DESIGN.md in the same PR.
 
 ## Commands
 
-| Command                         | Does                                                                     |
-| ------------------------------- | ------------------------------------------------------------------------ |
-| `make dev`                      | Vite dev server (check `pgrep -f vite` first)                            |
-| `make test`                     | Lint, typecheck, Vitest and Go tests; run before declaring anything done |
-| `make test-e2e`                 | Playwright                                                               |
-| `make api-types`                | Regenerate TS types after editing `openapi.yaml`                         |
-| `make deploy-test`              | Deploy to `meal-planner-test.wildsea.lowe.kiwi`                          |
-| `make format` / `make validate` | Formatting and Terraform validation                                      |
+| Command                                           | Does                                                                                                 |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `make dev`                                        | Vite dev server (check `pgrep -f vite` first)                                                        |
+| `make test`                                       | Lint, typecheck, validate, Vitest, Go and Terraform tests, Trivy; run before declaring anything done |
+| `make test-e2e`                                   | Playwright                                                                                           |
+| `make test-terraform`                             | `terraform test` with mocked providers (no AWS)                                                      |
+| `make api-types`                                  | Regenerate TS types after editing `openapi.yaml`                                                     |
+| `make deploy-test`                                | Deploy to `meal-planner-test.wildsea.lowe.kiwi`                                                      |
+| `make format` / `make validate`                   | Formatting; format checks and Terraform validation                                                   |
+| `make lock`                                       | Record provider hashes in the Terraform lock files after a provider change                           |
+| `make setup-state` / `setup-aws` / `setup-github` | One-off bootstrap; the human runs these                                                              |

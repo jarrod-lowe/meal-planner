@@ -104,16 +104,16 @@ You can:
 - **Environments** (copied and adapted from dnd-planner):
   - `terraform/environment/state`: the state bucket under the
     `meal-planner` key prefix
-  - `terraform/environment/aws`: OIDC provider (reused if it already exists in
-    the account) and IAM roles
-  - `terraform/environment/github`: repo variables and secrets for the
-    workflows
+  - `terraform/environment/aws`: the CI IAM roles, trusting the account's
+    existing GitHub OIDC provider (looked up, since dnd-planner owns it)
+  - `terraform/environment/github`: the `prod-ro` and `prod-rw` environments,
+    with their variables and secrets for the workflows
 - **Make targets:** `setup-state`, `setup-aws` and `setup-github`, plus
-  `validate` and `format` for Terraform.
+  `validate`, `format` and `test-terraform` for Terraform.
 - **Read-only access for agents:**
-  - a `meal-planner-ro` IAM role with `ReadOnlyAccess`
-  - a matching `meal-planner-ro` profile in `~/.aws/config` that assumes it.
-    `make setup-aws` prints the snippet, and the human adds it.
+  - a `meal-planner-ro` profile in `~/.aws/config`, using the SSO
+    `AWSReadOnlyAccess` permission set. No IAM role is needed, and
+    `make setup-aws` doesn't print a snippet; the human adds the profile.
   - This is the profile AGENTS.md tells agents to use.
 - **Security workflow:** the Trivy IaC scan joins `security.yaml`.
 
