@@ -76,7 +76,9 @@ jobs:
       # .terraform-version is the one place the Terraform version is set.
       - name: Read Terraform version
         id: terraform-version
-        run: echo "version=$(< .terraform-version)" >> "$GITHUB_OUTPUT"
+        run: |
+          read -r version < .terraform-version
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       # Make reads prod's outputs with `terraform output`. No wrapper, so Make
       # sees Terraform's own exit codes and output.
