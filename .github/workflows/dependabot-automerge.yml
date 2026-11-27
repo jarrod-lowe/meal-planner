@@ -1,0 +1,41 @@
+name: Dependabot auto-merge
+
+# Turns on auto-merge for Dependabot's patch and minor updates. GitHub merges
+# them only once the required checks pass; majors wait for a human.
+
+on:
+  pull_request:
+
+# Cancel a superseded run when a PR gets a new push.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Dependabot's `pull_request` runs get a read-only token unless the workflow
+# asks for more. These are the least needed to enable auto-merge.
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    name: automerge
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # The PR's author, not `github.actor`, so a human re-running the job on a
+    # Dependabot PR still matches and a human's PR never does.
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+
+      - name: Enable auto-merge for patch and minor updates
+        if: >-
+          steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
+          steps.metadata.outputs.update-type == 'version-update:semver-minor'
+        run: gh pr merge "$PR_URL" --auto --squash
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
