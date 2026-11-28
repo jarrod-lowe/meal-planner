@@ -72,36 +72,36 @@ references: DESIGN §1, §2.1 (`MEAL_SLOTS`, `SLOT_DEFAULT_TIMES`), §2.2
 
 ## PR 4.1: Meals API and engine consumption
 
-- [ ] **1. Meal model and validation.** `Meal` and `Mealtime` in
+- [x] **1. Meal model and validation.** `Meal` and `Mealtime` in
       `backend/internal/model`, typed `HolidayFacts.Meals`, `MealInput`, and
       the checks above in `validate`.
   - Tests first: table-driven checks at each boundary (0, 1, 100, 101
     mealtimes; duplicate mealtime and attendee IDs; bad and impossible
     date-times; null and bad `recipeId`); JSON round trip with `null`.
-- [ ] **2. Meal routes.** `PUT /holidays/{holidayId}/meals/{id}` (membership,
+- [x] **2. Meal routes.** `PUT /holidays/{holidayId}/meals/{id}` (membership,
       versioned create and update, mealtimes stored sorted) and the meal
       `DELETE`s, in the `holidays` Lambda; `LoadHoliday` returns meals.
   - Tests first, with the fake store: create, update, conflict,
     `already-exists`, membership `403`/`404`, validation `400`s, sorted
     mealtimes, delete on both routes; a store test that a loaded holiday
     includes its meals.
-- [ ] **3. OpenAPI.** `Meal`, `Mealtime`, `MealInput`, `MealSlot`, the routes,
+- [x] **3. OpenAPI.** `Meal`, `Mealtime`, `MealInput`, `MealSlot`, the routes,
       nullable `recipeId`, and typed `HolidayFacts.meals`; `make api-types`.
   - Tests first: the route test requires the new routes; a schema test that
     the imported body has the draft-04 type list for `recipeId`.
-- [ ] **4. Engine types and `factsBuilder()`.** `src/lib/engine/types.ts`
+- [x] **4. Engine types and `factsBuilder()`.** `src/lib/engine/types.ts`
       (`HolidayFacts`, `Catalogue`, `Plan` and its parts, `Warning`), the
       fixed lists in `src/lib/model/` (`MEAL_SLOTS`, `SLOT_DEFAULT_TIMES`),
       and a `factsBuilder()` test helper that builds a holiday in a few lines.
   - Tests first: the builder's own tests; `MEAL_SLOTS` matches the API enum.
-- [ ] **5. Engine consumption.** `plan()` with reference resolution (§3.2)
+- [x] **5. Engine consumption.** `plan()` with reference resolution (§3.2)
       and consumption (§3.3).
   - Tests first: recipe for 4 eaten by 8 doubles; 3 eaten by 2 gives exact
     fractions; 0 attendees consume nothing; a deleted attendee isn't
     counted; a soft-deleted recipe and ingredient are used normally; a
     missing recipe gives no consumption; a missing ingredient's line is
     skipped; Dinner A and Dinner B both consume.
-- [ ] **6. Engine warnings.** The four warnings above, in a stable order.
+- [x] **6. Engine warnings.** The four warnings above, in a stable order.
   - Tests first: each warning; `meal-without-recipe` only when a mealtime is
     at or after `now`; dangling references give the right warnings and
     nothing else; output order is deterministic.
