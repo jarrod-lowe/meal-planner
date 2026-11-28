@@ -12,9 +12,10 @@ locals {
   # `x-shared`. Decoding resolves them, and the block itself is dropped, so
   # API Gateway imports plain JSON with nothing it doesn't know.
   openapi = yamldecode(templatefile("${path.module}/openapi.yaml", {
-    cognito_user_pool_arn      = aws_cognito_user_pool.users.arn
-    holidays_lambda_invoke_arn = module.holidays.invoke_arn
-    users_lambda_invoke_arn    = module.users.invoke_arn
+    cognito_user_pool_arn       = aws_cognito_user_pool.users.arn
+    holidays_lambda_invoke_arn  = module.holidays.invoke_arn
+    users_lambda_invoke_arn     = module.users.invoke_arn
+    catalogue_lambda_invoke_arn = module.catalogue.invoke_arn
   }))
 
   # VersionConflictError.current is `nullable` (OpenAPI 3.0) in openapi.yaml,

@@ -5,7 +5,9 @@ package validate
 
 import (
 	"fmt"
+	"math"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 	_ "time/tzdata" // provided.al2023 has no zoneinfo
@@ -14,8 +16,13 @@ import (
 	"github.com/jarrod-lowe/meal-planner/backend/internal/model"
 )
 
-// MaxNameLength is the longest name, in characters.
-const MaxNameLength = 100
+// Limits, in characters for text (DESIGN §5.2).
+const (
+	MaxNameLength  = 100
+	MaxUnitLength  = 20
+	MaxNotesLength = 10000
+	MaxRecipeLines = 200
+)
 
 // Error is a validation failure. Its message is safe to return to the
 // client in a 400 response.
@@ -35,15 +42,19 @@ var (
 )
 
 // Name checks a name is 1–100 characters and not only whitespace.
-func Name(field, s string) error {
+func Name(field, s string) error { return text(field, s, true, MaxNameLength) }
+
+// text checks s is valid UTF-8 of at most limit characters, and, when
+// required, not only whitespace.
+func text(field, s string, required bool, limit int) error {
 	if !utf8.ValidString(s) {
 		return errorf("%s must be valid UTF-8", field)
 	}
-	if strings.TrimSpace(s) == "" {
+	if required && strings.TrimSpace(s) == "" {
 		return errorf("%s is required", field)
 	}
-	if n := utf8.RuneCountInString(s); n > MaxNameLength {
-		return errorf("%s must be at most %d characters", field, MaxNameLength)
+	if n := utf8.RuneCountInString(s); n > limit {
+		return errorf("%s must be at most %d characters", field, limit)
 	}
 	return nil
 }
@@ -125,6 +136,63 @@ func AttendeeInput(in model.AttendeeInput) error {
 func MemberInput(in model.MemberInput) error {
 	if in.Version != 0 {
 		return errorf("version must be 0: members can only be added")
+	}
+	return nil
+}
+
+// Positive checks a number is finite and greater than zero.
+func Positive(field string, v float64) error {
+	if math.IsNaN(v) || math.IsInf(v, 0) || v <= 0 {
+		return errorf("%s must be greater than 0", field)
+	}
+	return nil
+}
+
+// ShopSection checks s is one of the fixed shop sections (DESIGN §2.1).
+func ShopSection(field string, s model.ShopSection) error {
+	if !slices.Contains(model.ShopSections, s) {
+		return errorf("%s must be a known shop section", field)
+	}
+	return nil
+}
+
+// IngredientInput checks the body of PUT /catalogue/ingredients/{id}.
+func IngredientInput(in model.IngredientInput) error {
+	return first(
+		Name("name", in.Name),
+		text("unit", in.Unit, true, MaxUnitLength),
+		ShopSection("shopSection", in.ShopSection),
+		Version(in.Version),
+	)
+}
+
+// RecipeInput checks the body of PUT /catalogue/recipes/{id}. A recipe may
+// have no lines, and each ingredient may appear in only one line. Whether
+// the ingredients exist isn't checked (DESIGN §5.2).
+func RecipeInput(in model.RecipeInput) error {
+	if err := first(
+		Name("name", in.Name),
+		Positive("servings", in.Servings),
+		text("notes", in.Notes, false, MaxNotesLength),
+		Version(in.Version),
+	); err != nil {
+		return err
+	}
+	if len(in.Lines) > MaxRecipeLines {
+		return errorf("lines must have at most %d entries", MaxRecipeLines)
+	}
+	seen := make(map[string]bool, len(in.Lines))
+	for i, line := range in.Lines {
+		if err := first(
+			ID(fmt.Sprintf("lines[%d].ingredientId", i), line.IngredientID),
+			Positive(fmt.Sprintf("lines[%d].quantity", i), line.Quantity),
+		); err != nil {
+			return err
+		}
+		if seen[line.IngredientID] {
+			return errorf("lines[%d] repeats an ingredient: each may appear in only one line", i)
+		}
+		seen[line.IngredientID] = true
 	}
 	return nil
 }

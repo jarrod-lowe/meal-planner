@@ -219,6 +219,150 @@ components:
           items:
             $ref: '#/components/schemas/User'
 
+    ShopSection:
+      description: >-
+        Where an ingredient is found in a shop (DESIGN §2.1). The order here is
+        the order sections appear on a shopping list.
+      type: string
+      enum:
+        - produce
+        - bakery
+        - meat-fish
+        - dairy
+        - frozen
+        - pantry
+        - drinks
+        - household
+        - other
+
+    Unit:
+      description: Free text, such as g, can or box
+      type: string
+      minLength: 1
+      maxLength: 20
+
+    # "> 0". Draft-04 (API Gateway) and OpenAPI 3.0 (openapi-typescript) both
+    # spell an exclusive minimum as a number plus a boolean.
+    PositiveNumber:
+      type: number
+      minimum: 0
+      exclusiveMinimum: true
+
+    Notes:
+      description: 'Free text: method, source and so on'
+      type: string
+      maxLength: 10000
+
+    Deleted:
+      description: Hidden from pickers; still resolves for existing references
+      type: boolean
+
+    Ingredient:
+      type: object
+      required: [id, name, unit, shopSection, deleted, version, updatedAt, updatedBy]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          $ref: '#/components/schemas/Name'
+        unit:
+          $ref: '#/components/schemas/Unit'
+        shopSection:
+          $ref: '#/components/schemas/ShopSection'
+        deleted:
+          $ref: '#/components/schemas/Deleted'
+        version:
+          $ref: '#/components/schemas/Version'
+        updatedAt:
+          $ref: '#/components/schemas/UpdatedAt'
+        updatedBy:
+          $ref: '#/components/schemas/UpdatedBy'
+
+    IngredientInput:
+      type: object
+      required: [name, unit, shopSection, deleted, version]
+      properties:
+        name:
+          $ref: '#/components/schemas/Name'
+        unit:
+          $ref: '#/components/schemas/Unit'
+        shopSection:
+          $ref: '#/components/schemas/ShopSection'
+        deleted:
+          $ref: '#/components/schemas/Deleted'
+        version:
+          $ref: '#/components/schemas/InputVersion'
+
+    RecipeLine:
+      description: An ingredient may appear in only one line (the Lambda checks)
+      type: object
+      required: [ingredientId, quantity]
+      properties:
+        ingredientId:
+          $ref: '#/components/schemas/Uuid'
+        quantity:
+          $ref: '#/components/schemas/PositiveNumber'
+
+    RecipeLines:
+      type: array
+      maxItems: 200
+      items:
+        $ref: '#/components/schemas/RecipeLine'
+
+    Recipe:
+      type: object
+      required: [id, name, servings, lines, notes, deleted, version, updatedAt, updatedBy]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          $ref: '#/components/schemas/Name'
+        servings:
+          $ref: '#/components/schemas/PositiveNumber'
+        lines:
+          $ref: '#/components/schemas/RecipeLines'
+        notes:
+          $ref: '#/components/schemas/Notes'
+        deleted:
+          $ref: '#/components/schemas/Deleted'
+        version:
+          $ref: '#/components/schemas/Version'
+        updatedAt:
+          $ref: '#/components/schemas/UpdatedAt'
+        updatedBy:
+          $ref: '#/components/schemas/UpdatedBy'
+
+    RecipeInput:
+      type: object
+      required: [name, servings, lines, notes, deleted, version]
+      properties:
+        name:
+          $ref: '#/components/schemas/Name'
+        servings:
+          $ref: '#/components/schemas/PositiveNumber'
+        lines:
+          $ref: '#/components/schemas/RecipeLines'
+        notes:
+          $ref: '#/components/schemas/Notes'
+        deleted:
+          $ref: '#/components/schemas/Deleted'
+        version:
+          $ref: '#/components/schemas/InputVersion'
+
+    Catalogue:
+      description: The whole shared catalogue, hidden items included
+      type: object
+      required: [recipes, ingredients]
+      properties:
+        recipes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Recipe'
+        ingredients:
+          type: array
+          items:
+            $ref: '#/components/schemas/Ingredient'
+
     ErrorDetail:
       type: object
       required: [code, message]
@@ -275,6 +419,11 @@ x-shared:
     httpMethod: POST
     uri: '${users_lambda_invoke_arn}'
     passthroughBehavior: when_no_match
+  catalogue-integration: &catalogue-integration
+    type: aws_proxy
+    httpMethod: POST
+    uri: '${catalogue_lambda_invoke_arn}'
+    passthroughBehavior: when_no_match
   signed-in: &signed-in
     - CognitoAuthorizer: []
   holiday-id: &holiday-id
@@ -316,6 +465,12 @@ x-shared:
       application/json:
         schema:
           $ref: '#/components/schemas/Error'
+  catalogue-item-not-found: &catalogue-item-not-found
+    description: The recipe or ingredient doesn't exist (not-found)
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/Error'
   conflict: &conflict
     description: >-
       The stored version differs (version-conflict, with the current item), or
@@ -334,6 +489,8 @@ x-shared:
           $ref: '#/components/schemas/Error'
   deleted: &deleted
     description: Deleted (also when it didn't exist)
+  hidden: &hidden
+    description: Hidden (deleted set to true), including if it already was
 
 paths:
   /health:
@@ -584,4 +741,138 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserList'
         '401': *unauthorised
+        '500': *internal
+
+  /catalogue:
+    get:
+      summary: Get the whole catalogue
+      description: Every recipe and ingredient, hidden ones included.
+      operationId: getCatalogue
+      security: *signed-in
+      x-amazon-apigateway-request-validator: all
+      x-amazon-apigateway-integration: *catalogue-integration
+      responses:
+        '200':
+          description: The catalogue
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Catalogue'
+        '401': *unauthorised
+        '500': *internal
+
+  /catalogue/recipes/{id}:
+    put:
+      summary: Create (version 0) or update a recipe
+      description: Sending deleted false shows a hidden recipe again.
+      operationId: putRecipe
+      security: *signed-in
+      x-amazon-apigateway-request-validator: all
+      x-amazon-apigateway-integration: *catalogue-integration
+      parameters:
+        - *item-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecipeInput'
+      responses:
+        '200':
+          description: The recipe as stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recipe'
+        '400': *bad-request
+        '401': *unauthorised
+        '409': *conflict
+        '500': *internal
+    delete:
+      summary: Hide a recipe
+      description: >-
+        The same as the generic delete with kind recipes. It needs its own
+        method, because API Gateway routes the static recipes segment here
+        rather than to {kind}.
+      operationId: deleteRecipe
+      security: *signed-in
+      x-amazon-apigateway-request-validator: all
+      x-amazon-apigateway-integration: *catalogue-integration
+      parameters:
+        - *item-id
+      responses:
+        '204': *hidden
+        '400': *bad-request
+        '401': *unauthorised
+        '404': *catalogue-item-not-found
+        '500': *internal
+
+  /catalogue/ingredients/{id}:
+    put:
+      summary: Create (version 0) or update an ingredient
+      description: Sending deleted false shows a hidden ingredient again.
+      operationId: putIngredient
+      security: *signed-in
+      x-amazon-apigateway-request-validator: all
+      x-amazon-apigateway-integration: *catalogue-integration
+      parameters:
+        - *item-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngredientInput'
+      responses:
+        '200':
+          description: The ingredient as stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ingredient'
+        '400': *bad-request
+        '401': *unauthorised
+        '409': *conflict
+        '500': *internal
+    delete:
+      summary: Hide an ingredient
+      description: >-
+        The same as the generic delete with kind ingredients. It needs its own
+        method, because API Gateway routes the static ingredients segment here
+        rather than to {kind}.
+      operationId: deleteIngredient
+      security: *signed-in
+      x-amazon-apigateway-request-validator: all
+      x-amazon-apigateway-integration: *catalogue-integration
+      parameters:
+        - *item-id
+      responses:
+        '204': *hidden
+        '400': *bad-request
+        '401': *unauthorised
+        '404': *catalogue-item-not-found
+        '500': *internal
+
+  /catalogue/{kind}/{id}:
+    delete:
+      summary: Hide a recipe or ingredient
+      description: >-
+        kind is recipes or ingredients; the Lambda checks it. Sets deleted to
+        true and bumps the version, whatever the stored version is.
+      operationId: deleteCatalogueItem
+      security: *signed-in
+      x-amazon-apigateway-request-validator: all
+      x-amazon-apigateway-integration: *catalogue-integration
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          schema:
+            type: string
+        - *item-id
+      responses:
+        '204': *hidden
+        '400': *bad-request
+        '401': *unauthorised
+        '404': *catalogue-item-not-found
         '500': *internal

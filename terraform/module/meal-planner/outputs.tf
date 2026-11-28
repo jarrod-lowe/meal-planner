@@ -46,7 +46,8 @@ output "table_name" {
 output "lambda_function_names" {
   description = "Lambda function names, by Lambda (for make deploy-lambdas)"
   value = {
-    holidays = module.holidays.function_name
-    users    = module.users.function_name
+    holidays  = module.holidays.function_name
+    users     = module.users.function_name
+    catalogue = module.catalogue.function_name
   }
 }

@@ -139,6 +139,94 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/catalogue': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get the whole catalogue
+     * @description Every recipe and ingredient, hidden ones included.
+     */
+    get: operations['getCatalogue'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/catalogue/recipes/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Create (version 0) or update a recipe
+     * @description Sending deleted false shows a hidden recipe again.
+     */
+    put: operations['putRecipe'];
+    post?: never;
+    /**
+     * Hide a recipe
+     * @description The same as the generic delete with kind recipes. It needs its own method, because API Gateway routes the static recipes segment here rather than to {kind}.
+     */
+    delete: operations['deleteRecipe'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/catalogue/ingredients/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Create (version 0) or update an ingredient
+     * @description Sending deleted false shows a hidden ingredient again.
+     */
+    put: operations['putIngredient'];
+    post?: never;
+    /**
+     * Hide an ingredient
+     * @description The same as the generic delete with kind ingredients. It needs its own method, because API Gateway routes the static ingredients segment here rather than to {kind}.
+     */
+    delete: operations['deleteIngredient'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/catalogue/{kind}/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Hide a recipe or ingredient
+     * @description kind is recipes or ingredients; the Lambda checks it. Sets deleted to true and bumps the version, whatever the stored version is.
+     */
+    delete: operations['deleteCatalogueItem'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -225,6 +313,74 @@ export interface components {
     };
     UserList: {
       users: components['schemas']['User'][];
+    };
+    /**
+     * @description Where an ingredient is found in a shop (DESIGN §2.1). The order here is the order sections appear on a shopping list.
+     * @enum {string}
+     */
+    ShopSection:
+      | 'produce'
+      | 'bakery'
+      | 'meat-fish'
+      | 'dairy'
+      | 'frozen'
+      | 'pantry'
+      | 'drinks'
+      | 'household'
+      | 'other';
+    /** @description Free text, such as g, can or box */
+    Unit: string;
+    PositiveNumber: number;
+    /** @description Free text: method, source and so on */
+    Notes: string;
+    /** @description Hidden from pickers; still resolves for existing references */
+    Deleted: boolean;
+    Ingredient: {
+      id: components['schemas']['Uuid'];
+      name: components['schemas']['Name'];
+      unit: components['schemas']['Unit'];
+      shopSection: components['schemas']['ShopSection'];
+      deleted: components['schemas']['Deleted'];
+      version: components['schemas']['Version'];
+      updatedAt: components['schemas']['UpdatedAt'];
+      updatedBy: components['schemas']['UpdatedBy'];
+    };
+    IngredientInput: {
+      name: components['schemas']['Name'];
+      unit: components['schemas']['Unit'];
+      shopSection: components['schemas']['ShopSection'];
+      deleted: components['schemas']['Deleted'];
+      version: components['schemas']['InputVersion'];
+    };
+    /** @description An ingredient may appear in only one line (the Lambda checks) */
+    RecipeLine: {
+      ingredientId: components['schemas']['Uuid'];
+      quantity: components['schemas']['PositiveNumber'];
+    };
+    RecipeLines: components['schemas']['RecipeLine'][];
+    Recipe: {
+      id: components['schemas']['Uuid'];
+      name: components['schemas']['Name'];
+      servings: components['schemas']['PositiveNumber'];
+      lines: components['schemas']['RecipeLines'];
+      notes: components['schemas']['Notes'];
+      deleted: components['schemas']['Deleted'];
+      version: components['schemas']['Version'];
+      updatedAt: components['schemas']['UpdatedAt'];
+      updatedBy: components['schemas']['UpdatedBy'];
+    };
+    RecipeInput: {
+      name: components['schemas']['Name'];
+      servings: components['schemas']['PositiveNumber'];
+      lines: components['schemas']['RecipeLines'];
+      notes: components['schemas']['Notes'];
+      deleted: components['schemas']['Deleted'];
+      version: components['schemas']['InputVersion'];
+    };
+    /** @description The whole shared catalogue, hidden items included */
+    Catalogue: {
+      recipes: components['schemas']['Recipe'][];
+      ingredients: components['schemas']['Ingredient'][];
     };
     ErrorDetail: {
       /** @enum {string} */
@@ -910,6 +1066,327 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      /** @description Anything else (internal) */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  getCatalogue: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The catalogue */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Catalogue'];
+        };
+      };
+      /** @description Missing or invalid token (from API Gateway) */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Anything else (internal) */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  putRecipe: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RecipeInput'];
+      };
+    };
+    responses: {
+      /** @description The recipe as stored */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Recipe'];
+        };
+      };
+      /** @description The request failed validation (validation) */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Missing or invalid token (from API Gateway) */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The stored version differs (version-conflict, with the current item), or a create found the item already exists (already-exists) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json':
+            components['schemas']['VersionConflictError'] | components['schemas']['Error'];
+        };
+      };
+      /** @description Anything else (internal) */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  deleteRecipe: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Hidden (deleted set to true), including if it already was */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The request failed validation (validation) */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Missing or invalid token (from API Gateway) */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The recipe or ingredient doesn't exist (not-found) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Anything else (internal) */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  putIngredient: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['IngredientInput'];
+      };
+    };
+    responses: {
+      /** @description The ingredient as stored */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Ingredient'];
+        };
+      };
+      /** @description The request failed validation (validation) */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Missing or invalid token (from API Gateway) */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The stored version differs (version-conflict, with the current item), or a create found the item already exists (already-exists) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json':
+            components['schemas']['VersionConflictError'] | components['schemas']['Error'];
+        };
+      };
+      /** @description Anything else (internal) */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  deleteIngredient: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Hidden (deleted set to true), including if it already was */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The request failed validation (validation) */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Missing or invalid token (from API Gateway) */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The recipe or ingredient doesn't exist (not-found) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Anything else (internal) */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  deleteCatalogueItem: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        kind: string;
+        id: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Hidden (deleted set to true), including if it already was */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The request failed validation (validation) */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Missing or invalid token (from API Gateway) */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The recipe or ingredient doesn't exist (not-found) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
       };
       /** @description Anything else (internal) */
       500: {

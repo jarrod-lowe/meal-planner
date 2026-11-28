@@ -488,6 +488,9 @@ All paths are under `/api`, served through CloudFront.
   `updatedAt` or `updatedBy`.
 - `version: 0` means "create". Any other value is the version the client last
   read.
+- `RecipeInput` and `IngredientInput` include `deleted`, so a `PUT` with
+  `deleted: false` shows a hidden item again. `DELETE` is idempotent: hiding
+  a hidden item changes nothing.
 - The server sets `updatedAt` and `updatedBy` from the JWT.
 
 ### 5.2 Validation
@@ -495,7 +498,7 @@ All paths are under `/api`, served through CloudFront.
 #### API Gateway schemas enforce
 
 - required fields and field types
-- string lengths: names 1–100 characters, notes ≤ 10,000 characters
+- string lengths: names 1–100 characters, units 1–20, notes ≤ 10,000 characters
 - quantities and servings > 0
 - the `ShopSection` and `MealSlot` enums
 - `LocalDate` and `LocalDateTime` patterns, an IANA-looking time zone, and a

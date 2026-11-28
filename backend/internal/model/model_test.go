@@ -167,3 +167,106 @@ func TestDynamoDBAttributes(t *testing.T) {
 		t.Errorf("holiday keys = %+v", h.StorageKeys)
 	}
 }
+
+func TestIngredientJSON(t *testing.T) {
+	i := Ingredient{ID: "i1", Name: "Sugar", Unit: "g", ShopSection: ShopSectionPantry, Deleted: true, Versioned: versioned}
+	i.SetKeys()
+	if i.PK != "CATALOGUE" || i.SK != "INGREDIENT#i1" || i.Type != "ingredient" {
+		t.Errorf("ingredient keys = %+v", i.StorageKeys)
+	}
+	got := jsonRoundTrip(t, i,
+		`{"id":"i1","name":"Sugar","unit":"g","shopSection":"pantry","deleted":true,"version":3,"updatedAt":"2026-01-02T03:04:05.000Z","updatedBy":"sub-1"}`)
+	i.StorageKeys = StorageKeys{}
+	if !reflect.DeepEqual(got, i) {
+		t.Errorf("round trip = %+v, want %+v", got, i)
+	}
+}
+
+func TestRecipeJSON(t *testing.T) {
+	r := Recipe{ID: "r1", Name: "Pancakes", Servings: 4, Lines: []RecipeLine{{IngredientID: "i1", Quantity: 1.5}},
+		Notes: "Mix.", Versioned: versioned}
+	r.SetKeys()
+	if r.PK != "CATALOGUE" || r.SK != "RECIPE#r1" || r.Type != "recipe" {
+		t.Errorf("recipe keys = %+v", r.StorageKeys)
+	}
+	got := jsonRoundTrip(t, r,
+		`{"id":"r1","name":"Pancakes","servings":4,"lines":[{"ingredientId":"i1","quantity":1.5}],"notes":"Mix.","deleted":false,"version":3,"updatedAt":"2026-01-02T03:04:05.000Z","updatedBy":"sub-1"}`)
+	r.StorageKeys = StorageKeys{}
+	if !reflect.DeepEqual(got, r) {
+		t.Errorf("round trip = %+v, want %+v", got, r)
+	}
+	// A recipe with no lines writes an empty array, never null.
+	empty := jsonRoundTrip(t, Recipe{ID: "r2"},
+		`{"id":"r2","name":"","servings":0,"lines":[],"notes":"","deleted":false,"version":0,"updatedAt":"","updatedBy":""}`)
+	if empty.ID != "r2" {
+		t.Errorf("round trip = %+v", empty)
+	}
+	var p *Recipe = &r
+	if b, _ := json.Marshal(p); !strings.Contains(string(b), `"lines":[{`) {
+		t.Errorf("pointer JSON = %s", b)
+	}
+}
+
+func TestRecipeDynamoDBRoundTrip(t *testing.T) {
+	for _, r := range []Recipe{
+		{ID: "r1", Name: "Pancakes", Servings: 2, Lines: []RecipeLine{{IngredientID: "i1", Quantity: 0.25}}, Deleted: true, Versioned: versioned},
+		{ID: "r2", Name: "Nothing", Servings: 1, Versioned: versioned},
+	} {
+		r.SetKeys()
+		av, err := attributevalue.MarshalMap(r)
+		if err != nil {
+			t.Fatalf("MarshalMap() error = %v", err)
+		}
+		for _, attr := range []string{"PK", "SK", "type", "id", "name", "servings", "lines", "notes", "deleted", "version"} {
+			if _, ok := av[attr]; !ok {
+				t.Errorf("%s: no %s attribute in %v", r.ID, attr, av)
+			}
+		}
+		var back Recipe
+		if err := attributevalue.UnmarshalMap(av, &back); err != nil {
+			t.Fatalf("UnmarshalMap() error = %v", err)
+		}
+		if back.ID != r.ID || back.Deleted != r.Deleted || len(back.Lines) != len(r.Lines) || back.PK != "CATALOGUE" {
+			t.Errorf("DynamoDB round trip = %+v, want %+v", back, r)
+		}
+	}
+}
+
+func TestCatalogueJSONEmptyArrays(t *testing.T) {
+	b, err := json.Marshal(Catalogue{})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if string(b) != `{"recipes":[],"ingredients":[]}` {
+		t.Errorf("JSON = %s", b)
+	}
+	c := Catalogue{Recipes: []Recipe{{ID: "r1"}}, Ingredients: []Ingredient{{ID: "i1", ShopSection: ShopSectionOther}}}
+	c.Recipes[0].SetKeys()
+	b, err = json.Marshal(c)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if strings.Contains(string(b), "PK") || !strings.Contains(string(b), `"lines":[]`) || !strings.Contains(string(b), `"shopSection":"other"`) {
+		t.Errorf("JSON = %s", b)
+	}
+}
+
+func TestCatalogueInputJSON(t *testing.T) {
+	ri := jsonRoundTrip(t, RecipeInput{Name: "P", Servings: 2, Lines: []RecipeLine{{IngredientID: "i1", Quantity: 3}}, Notes: "n", Deleted: true, Version: 4},
+		`{"name":"P","servings":2,"lines":[{"ingredientId":"i1","quantity":3}],"notes":"n","deleted":true,"version":4}`)
+	if ri.Version != 4 || !ri.Deleted || len(ri.Lines) != 1 {
+		t.Errorf("RecipeInput round trip = %+v", ri)
+	}
+	ii := jsonRoundTrip(t, IngredientInput{Name: "Milk", Unit: "l", ShopSection: ShopSectionDairy, Version: 0},
+		`{"name":"Milk","unit":"l","shopSection":"dairy","deleted":false,"version":0}`)
+	if ii.ShopSection != ShopSectionDairy {
+		t.Errorf("IngredientInput round trip = %+v", ii)
+	}
+}
+
+func TestShopSectionsOrder(t *testing.T) {
+	want := []ShopSection{"produce", "bakery", "meat-fish", "dairy", "frozen", "pantry", "drinks", "household", "other"}
+	if !reflect.DeepEqual(ShopSections, want) {
+		t.Errorf("ShopSections = %v, want %v", ShopSections, want)
+	}
+}

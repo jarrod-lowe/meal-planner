@@ -173,4 +173,4 @@ references: DESIGN §1 (conventions), §2.2 (stored facts), §4 (DynamoDB), §5
 - [x] **18. Seed.** `make seed-test EMAIL=`, per the decision above.
 - [x] **19. Verify in test (human).** `make deploy-test`, then the "You can"
       list, using the second user for the refresh check.
-- [ ] **20. PR and review.** Open the PR; Codex loop.
+- [x] **20. PR and review.** Open the PR; Codex loop.

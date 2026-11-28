@@ -47,9 +47,15 @@ type DynamoDB struct {
 	// beforeBatchWrite, when set, runs before each batch write, and its
 	// error fails it (tests use it to inject failures).
 	beforeBatchWrite func([]types.WriteRequest) error
+	// beforeSoftDeletePut, when set, runs between a soft delete's get and
+	// its put, with the attempt number from 0 (tests use it to race writes).
+	beforeSoftDeletePut func(attempt int)
 }
 
-var _ Store = (*DynamoDB)(nil)
+var (
+	_ Store          = (*DynamoDB)(nil)
+	_ CatalogueStore = (*DynamoDB)(nil)
+)
 
 // New returns a store on the given table.
 func New(client *dynamodb.Client, table string) *DynamoDB {
