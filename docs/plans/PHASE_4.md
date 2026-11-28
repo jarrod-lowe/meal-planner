@@ -107,7 +107,7 @@ references: DESIGN §1, §2.1 (`MEAL_SLOTS`, `SLOT_DEFAULT_TIMES`), §2.2
     nothing else; output order is deterministic.
 - [x] **7. Deploy to test.** The agent runs `make deploy-test`; then the meal
       routes return `401` without a token.
-- [ ] **8. PR and review.** Open the PR; Codex loop.
+- [x] **8. PR and review.** Open the PR; Codex loop.
 
 ## PR 4.2: Planner and meal editor
 
@@ -149,6 +149,6 @@ references: DESIGN §1, §2.1 (`MEAL_SLOTS`, `SLOT_DEFAULT_TIMES`), §2.2
       editor and Overview, desktop and Pixel 7.
 - [x] **16. Seed.** `make seed-test` adds a few meals to the sample holiday,
       using the seeded recipes.
-- [ ] **17. Verify in test (human).** The agent runs `make deploy-test` and
+- [x] **17. Verify in test (human).** The agent runs `make deploy-test` and
       `make seed-test`; the human checks the "You can" list.
 - [ ] **18. PR and review.** Open the PR; Codex loop.
