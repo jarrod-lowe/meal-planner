@@ -105,7 +105,7 @@ references: DESIGN §1, §2.1 (`MEAL_SLOTS`, `SLOT_DEFAULT_TIMES`), §2.2
   - Tests first: each warning; `meal-without-recipe` only when a mealtime is
     at or after `now`; dangling references give the right warnings and
     nothing else; output order is deterministic.
-- [ ] **7. Deploy to test.** The agent runs `make deploy-test`; then the meal
+- [x] **7. Deploy to test.** The agent runs `make deploy-test`; then the meal
       routes return `401` without a token.
 - [ ] **8. PR and review.** Open the PR; Codex loop.
 
