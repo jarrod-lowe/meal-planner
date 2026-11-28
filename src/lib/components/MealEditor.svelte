@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick, untrack } from 'svelte';
+  import { onDestroy, tick, untrack } from 'svelte';
   import { v7 as uuidv7 } from 'uuid';
   import { resolve } from '$app/paths';
   import type { Schemas } from '#lib/api/client.js';
@@ -161,6 +161,9 @@
 
   let submitted = $state(false);
   let saving = $state(false);
+  // A create that finishes after the user has left must not pull them back.
+  let gone = false;
+  onDestroy(() => (gone = true));
   let saved = $state(false);
   let confirmingDelete = $state(false);
   /** Choosing a recipe in place of the one the meal has. */
@@ -259,7 +262,7 @@
         base = { version: existing?.version, fields: sent };
         saved = true;
         drafts.clear(draftKey);
-        if (isNew) oncreated?.(id);
+        if (isNew && !gone) oncreated?.(id);
       }
     } finally {
       ownWrites--;

@@ -1,5 +1,6 @@
 import '#lib/test/dialog.js';
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { Schemas } from '#lib/api/client.js';
@@ -88,6 +89,7 @@ async function setup(options: Options = {}) {
     ondeleted,
     writes,
     remount,
+    unmount: () => view.unmount(),
     user: userEvent.setup()
   };
 }
@@ -413,6 +415,30 @@ describe('MealEditor', () => {
       })
     );
     await vi.waitFor(() => expect(oncreated).toHaveBeenCalledOnce());
+  });
+
+  it('doesn’t report a new meal created after the editor has gone', async () => {
+    const { user, reply, oncreated, unmount, store } = await setup({
+      date: '2027-01-01',
+      slot: 'dinner'
+    });
+    let answer: (response: Response) => void = () => undefined;
+    reply('PUT', new Promise<Response>((resolve) => (answer = resolve)));
+
+    await user.click(button(t('meal.save')));
+    // The user leaves (Back to plan) before the save comes back.
+    unmount();
+    answer(
+      new Response(JSON.stringify(saved({ name: '1 Jan Dinner', version: 1 })), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    );
+
+    await vi.waitFor(() => expect(store.facts?.meals.map((meal) => meal.version)).toContain(1));
+    await new Promise((settle) => setTimeout(settle, 0));
+    await tick();
+    expect(oncreated).not.toHaveBeenCalled();
   });
 
   it('keeps an edit made while a saved meal’s update is in flight', async () => {
