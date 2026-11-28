@@ -4,6 +4,29 @@ export const en = {
     title: 'Meal planner',
     loading: 'Loading…'
   },
+  toasts: {
+    label: 'Notifications',
+    dismiss: 'Dismiss',
+    dismissIcon: '×',
+    error: 'Error',
+    info: 'Note'
+  },
+  holiday: {
+    refreshFailed: 'Couldn’t refresh the holiday. Showing what was loaded before.'
+  },
+  mutate: {
+    refreshHoliday: 'Refresh holiday',
+    conflict:
+      'Someone else changed {item}, so your change wasn’t saved. You’re seeing their version.',
+    conflictDeleted: 'Someone else deleted {item}, so your change wasn’t saved.',
+    failed: 'Couldn’t save {item}. Check your connection and try again.',
+    rejected: 'Couldn’t save {item}: {message}',
+    items: {
+      holiday: 'the holiday',
+      attendees: 'an attendee',
+      members: 'a member'
+    }
+  },
   home: {
     title: 'Home · Meal planner',
     greeting: 'Hello, {name}',

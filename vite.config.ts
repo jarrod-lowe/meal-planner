@@ -1,5 +1,6 @@
 import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { svelteTesting } from '@testing-library/svelte/vite';
 import { loadEnv } from 'vite';
 import { defineConfig } from 'vitest/config';
 
@@ -34,9 +35,29 @@ export default defineConfig(({ mode }) => {
       proxy: apiProxyTarget ? { '/api': { target: apiProxyTarget, changeOrigin: true } } : undefined
     },
     test: {
-      // terraform/: the CloudFront Function's tests sit next to it.
-      include: ['src/**/*.test.ts', 'terraform/**/*.test.ts'],
-      environment: 'node'
+      projects: [
+        {
+          extends: true,
+          test: {
+            name: 'node',
+            // terraform/: the CloudFront Function's tests sit next to it.
+            include: ['src/**/*.test.ts', 'terraform/**/*.test.ts'],
+            exclude: ['src/**/*.svelte.test.ts'],
+            environment: 'node'
+          }
+        },
+        {
+          // Component tests (DESIGN §10): Svelte's browser build in jsdom,
+          // with Testing Library's cleanup after each test.
+          extends: true,
+          plugins: [svelteTesting()],
+          test: {
+            name: 'components',
+            include: ['src/**/*.svelte.test.ts'],
+            environment: 'jsdom'
+          }
+        }
+      ]
     }
   };
 });
