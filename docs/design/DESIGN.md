@@ -554,7 +554,7 @@ backend/
 ```
 
 - **Runtime:** `provided.al2023`, arm64, 128 MB, 10 s timeout. Built by Make
-  into `build/lambdas/<name>/bootstrap`, zipped, and deployed with
+  into `dist/lambdas/<name>/bootstrap`, zipped, and deployed with
   `aws lambda update-function-code`, following the dnd-planner flow.
 - **Configuration:** environment variables `TABLE_NAME` for `holidays` and
   `catalogue`, and `USER_POOL_ID` for `users`.
@@ -862,18 +862,19 @@ pieces below.
 
 Make targets follow dnd-planner. Terraform is only ever run through Make.
 
-| Target                                            | Does                                                                 |
-| ------------------------------------------------- | -------------------------------------------------------------------- |
-| `make dev`                                        | Vite dev server; proxies `/api` to the test environment's CloudFront |
-| `make test`                                       | Lint, typecheck, validate, Vitest, Go and Terraform tests, Trivy     |
-| `make test-e2e`                                   | Playwright against the dev server                                    |
-| `make api-types`                                  | Regenerate TS types from `openapi.yaml`                              |
-| `make build`                                      | UI build + Lambda binaries                                           |
-| `make validate` / `make format`                   | Terraform validate/format, Prettier, gofmt                           |
-| `make setup-state` / `setup-aws` / `setup-github` | One-off bootstrap                                                    |
-| `make deploy-test`                                | Terraform apply (test), Lambda code, UI upload, invalidation         |
-| `make build-ui ENV=` / `make push-ui ENV=`        | UI build with an environment's settings; upload and invalidation     |
-| `make create-user ENV= EMAIL= NAME=`              | Admin-create a Cognito user                                          |
+| Target                                            | Does                                                                                            |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `make dev`                                        | Vite dev server; proxies `/api` to the test environment's CloudFront                            |
+| `make test`                                       | Lint, typecheck, validate, Vitest, Go and Terraform tests, Trivy                                |
+| `make test-e2e`                                   | Playwright against the dev server                                                               |
+| `make api-types`                                  | Regenerate TS types from `openapi.yaml`                                                         |
+| `make build`                                      | UI build, then the Lambda binaries and reproducible zips                                        |
+| `make validate` / `make format`                   | Terraform validate/format, Prettier, gofmt                                                      |
+| `make setup-state` / `setup-aws` / `setup-github` | One-off bootstrap                                                                               |
+| `make deploy-test`                                | Terraform apply (test), `.env.local`, Lambda code, UI build, upload and invalidation            |
+| `make deploy-lambdas ENV=`                        | Build the Lambda zips and update the environment's functions (names from its Terraform outputs) |
+| `make build-ui ENV=` / `make push-ui ENV=`        | UI build with an environment's settings; upload and invalidation                                |
+| `make create-user ENV= EMAIL= NAME=`              | Admin-create a Cognito user                                                                     |
 
 ### GitHub Actions
 

@@ -123,14 +123,14 @@ references: DESIGN §1 (conventions), §2.2 (stored facts), §4 (DynamoDB), §5
   - Tests first: `terraform test` for runtime, architecture, memory,
     timeout, the IAM actions and resources of each function, and log
     retention.
-- [ ] **9. Build and deploy.** Make: build `build/lambdas/<name>/bootstrap`
+- [x] **9. Build and deploy.** Make: build `dist/lambdas/<name>/bootstrap`
       (`GOOS=linux GOARCH=arm64`, `-tags lambda.norpc`), reproducible zips,
       `deploy-lambdas ENV=`, added to `deploy-test` and `make build`. The
       prod deploy workflow sets up Go from `backend/go.mod` and runs
       `make deploy-lambdas ENV=prod`. Update DESIGN §9 and the AGENTS.md
       commands table.
   - Check: `make build` makes both zips; two builds give identical zips.
-- [ ] **10. Deploy to test.** The human runs `make deploy-test`. Then
+- [ ] **10. Deploy to test.** The agent runs `make deploy-test`. Then
       `GET /api/holidays` without a token returns `401`, and the functions
       have the real code (`aws lambda get-function`, read-only profile).
 - [ ] **11. PR and review.** Open the PR; Codex loop.
