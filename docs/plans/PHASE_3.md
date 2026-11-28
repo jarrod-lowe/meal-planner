@@ -108,33 +108,33 @@ picker), §10 (component tests); ARCHITECTURE "Helpfulness".
       `data/common-ingredients.json` with its validation test.
   - Tests first: typo matching (a misspelt "tomato"), grouping by name, hidden items,
     and suggestions that leave out names + units already in the catalogue.
-- [ ] **11. App header.** Holidays, Recipes and Ingredients links with
+- [x] **11. App header.** Holidays, Recipes and Ingredients links with
       `aria-current`, and sign-out.
   - Tests first: component test for the links and the active page.
-- [ ] **12. Ingredient picker.** `IngredientPicker.svelte`: results as
+- [x] **12. Ingredient picker.** `IngredientPicker.svelte`: results as
       "Sugar · g · Pantry", suggestions marked *Add to catalogue*, an inline
       create form (name, unit with suggestions, shop section), and a duplicate
       warning for an existing name + unit.
   - Tests first: fuzzy match, keyboard navigation and selection, choosing a
     suggestion creates it, create new, and the duplicate warning.
-- [ ] **13. Ingredients page.** `/ingredients`: search, a list grouped by
+- [x] **13. Ingredients page.** `/ingredients`: search, a list grouped by
       shop section, inline edit (name, unit, section), add via the create
       form, hide, **Show hidden** and show again.
   - Tests first: component tests for edit, hide and show again.
-- [ ] **14. Recipes.** `/recipes`: search, list, **Show hidden**, and a new
+- [x] **14. Recipes.** `/recipes`: search, list, **Show hidden**, and a new
       recipe button. `/recipes/[recipeId]` (`new` creates): name, servings,
       notes, and lines of picker + quantity with the unit beside it. Enter on
       a quantity adds a line; lines can be removed; save is one `PUT`; hide
       and show again.
   - Tests first: component tests for the keyboard flow, line removal, the
     one-line-per-ingredient rule, and save.
-- [ ] **15. Recipe picker.** `RecipePicker.svelte`: a fuzzy combobox with a
+- [x] **15. Recipe picker.** `RecipePicker.svelte`: a fuzzy combobox with a
       *Create new recipe* option, for phase 4.
   - Tests first: component tests for matching, keyboard selection, and the
     create option.
 - [x] **16. Seed.** `make seed-test` adds the catalogue items, per the
       decision above.
-- [ ] **17. E2E.** With the mocked API: create an ingredient from a
+- [x] **17. E2E.** With the mocked API: create an ingredient from a
       suggestion, build a recipe with the picker (keyboard only), hide it
       and show it again. Axe checks on `/ingredients`, `/recipes` and the
       editor, desktop and Pixel 7.
