@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError, createApiClient, type Schemas } from '#lib/api/client.js';
+import { CancelledError } from './holiday.svelte.js';
 import { MyHolidays } from './holidays.svelte.js';
 
 type Holiday = Schemas['Holiday'];
@@ -30,9 +31,9 @@ const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 const error = (status: number, code: string) => json(status, { error: { code, message: code } });
 
-type Reply = Response | Error;
+type Reply = Response | Error | Promise<Response>;
 
-function setup() {
+function setup(sleep: () => Promise<void> = () => Promise.resolve()) {
   const queues = new Map<string, Reply[]>();
   const requests: { method: string; path: string; body: unknown }[] = [];
   const fetch = vi.fn((url: string, init: RequestInit) => {
@@ -52,7 +53,7 @@ function setup() {
   };
   const store = new MyHolidays({
     api: createApiClient({ fetch, token: () => Promise.resolve('token') }),
-    sleep: () => Promise.resolve()
+    sleep
   });
   return { store, reply, requests };
 }
@@ -144,6 +145,36 @@ describe('MyHolidays', () => {
 
     await expect(store.create(id, fields)).rejects.toMatchObject({ code: 'validation' });
     expect(requests).toHaveLength(1);
+  });
+
+  it('stops retrying a create after clear (sign-out)', async () => {
+    let wake: () => void = () => undefined;
+    const backoff = new Promise<void>((resolve) => (wake = resolve));
+    const { store, reply, requests } = setup(() => backoff);
+    reply(`PUT /holidays/${id}`, new TypeError('offline'), json(200, stored));
+
+    const creating = store.create(id, fields);
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    store.clear();
+    wake();
+
+    await expect(creating).rejects.toBeInstanceOf(CancelledError);
+    expect(requests).toHaveLength(1);
+    expect(store.list).toEqual([]);
+  });
+
+  it('does not add a holiday whose create returns after clear', async () => {
+    let resolve: (response: Response) => void = () => undefined;
+    const { store, reply, requests } = setup();
+    reply(`PUT /holidays/${id}`, new Promise<Response>((r) => (resolve = r)));
+
+    const creating = store.create(id, fields);
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    store.clear();
+    resolve(json(200, stored));
+
+    await expect(creating).rejects.toBeInstanceOf(CancelledError);
+    expect(store.list).toEqual([]);
   });
 
   it('forgets the list on clear', async () => {

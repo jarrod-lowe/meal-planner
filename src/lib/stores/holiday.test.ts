@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createApiClient, type Schemas } from '#lib/api/client.js';
 import { t } from '#lib/i18n/en.js';
-import { HolidayStore, withRetry } from './holiday.svelte.js';
+import { CancelledError, HolidayStore, withRetry, type MutationResult } from './holiday.svelte.js';
 import { Toasts } from './toast.svelte.js';
 
 type Facts = Schemas['HolidayFacts'];
@@ -37,7 +37,7 @@ type Reply = Response | Error | Promise<Response>;
  * A fake API behind a real client. Each `METHOD path` has a queue of replies;
  * an `Error` reply makes fetch reject (a network error).
  */
-function setup() {
+function setup(options: { sleep?: (ms: number) => Promise<void> } = {}) {
   const queues = new Map<string, Reply[]>();
   const requests: { method: string; path: string; body: unknown }[] = [];
   const fetch = vi.fn((url: string, init: RequestInit) => {
@@ -65,7 +65,7 @@ function setup() {
     now: () => clock,
     sleep: (ms) => {
       sleeps.push(ms);
-      return Promise.resolve();
+      return options.sleep?.(ms) ?? Promise.resolve();
     }
   });
   const tick = (ms: number) => (clock += ms);
@@ -75,8 +75,8 @@ function setup() {
 
 const attendeePath = (id: string) => `/holidays/${holidayId}/attendees/${id}`;
 
-async function loaded() {
-  const env = setup();
+async function loaded(options: Parameters<typeof setup>[0] = {}) {
+  const env = setup(options);
   env.reply(`GET /holidays/${holidayId}`, json(200, facts()));
   await env.store.load(holidayId);
   return env;
@@ -645,6 +645,65 @@ describe('HolidayStore.mutate', () => {
     });
   });
 
+  describe('after clear (sign-out)', () => {
+    const expectCancelled = async (result: Promise<MutationResult>) => {
+      const settled = await result;
+      expect(settled.outcome).toBe('failed');
+      expect(settled.outcome === 'failed' && settled.error).toBeInstanceOf(CancelledError);
+    };
+
+    it('stops a write waiting to retry, with no more requests', async () => {
+      let wake: () => void = () => undefined;
+      const backoff = new Promise<void>((resolve) => (wake = resolve));
+      const { store, reply, requests, toasts } = await loaded({ sleep: () => backoff });
+      reply(`PUT ${attendeePath(annId)}`, new TypeError('offline'), json(200, {}));
+
+      const result = store.mutate({ kind: 'attendees', id: annId, fields: { name: 'Annie' } });
+      await vi.waitFor(() => expect(requests).toHaveLength(2));
+      store.clear();
+      wake();
+
+      await expectCancelled(result);
+      expect(requests).toHaveLength(2);
+      expect(toasts.items).toEqual([]);
+      expect(store.facts).toBeNull();
+    });
+
+    it('never sends a write queued behind one in flight', async () => {
+      const { store, reply, requests } = await loaded();
+      const pending = deferred();
+      reply(`PUT ${attendeePath(annId)}`, pending.promise);
+
+      const first = store.mutate({ kind: 'attendees', id: annId, fields: { name: 'Annie' } });
+      const second = store.mutate({ kind: 'attendees', id: annId, remove: true });
+      await vi.waitFor(() => expect(requests).toHaveLength(2));
+      store.clear();
+      pending.resolve(json(200, { id: annId, name: 'Annie', version: 3, ...meta }));
+
+      await expect(first).resolves.toMatchObject({ outcome: 'failed' });
+      await expectCancelled(second);
+      expect(requests.map((r) => r.method)).toEqual(['GET', 'PUT']);
+    });
+
+    it('does not apply a response that arrives after clear', async () => {
+      const { store, reply, requests, toasts } = await loaded();
+      const pending = deferred();
+      reply(`PUT ${attendeePath(annId)}`, pending.promise);
+
+      const result = store.mutate({ kind: 'attendees', id: annId, fields: { name: 'Annie' } });
+      await vi.waitFor(() => expect(requests).toHaveLength(2));
+      store.clear();
+      // The same holiday, opened again (say, by the next user).
+      reply(`GET /holidays/${holidayId}`, json(200, facts()));
+      await store.load(holidayId);
+      pending.resolve(json(200, { id: annId, name: 'Annie', version: 3, ...meta }));
+
+      await expectCancelled(result);
+      expect(store.facts).toEqual(facts());
+      expect(toasts.items).toEqual([]);
+    });
+  });
+
   it('refuses to mutate with no holiday loaded', async () => {
     const { store } = setup();
 
@@ -663,5 +722,20 @@ describe('withRetry', () => {
 
     expect(call).toHaveBeenCalledOnce();
     expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it('stops with CancelledError, before any attempt, once shouldContinue is false', async () => {
+    let going = true;
+    const call = vi.fn(() => {
+      going = false;
+      return Promise.reject(new TypeError('offline'));
+    });
+    const sleep = vi.fn(() => Promise.resolve());
+
+    await expect(withRetry(call, { sleep, shouldContinue: () => going })).rejects.toBeInstanceOf(
+      CancelledError
+    );
+
+    expect(call).toHaveBeenCalledOnce();
   });
 });

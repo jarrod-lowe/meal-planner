@@ -33,6 +33,8 @@ export class MyHolidays {
   readonly #api: ApiClient;
   readonly #retry: RetryOptions;
   #seq = 0;
+  /** Bumped on sign-out; creates from an older generation stop. */
+  #generation = 0;
 
   constructor(options: MyHolidaysOptions) {
     this.#api = options.api;
@@ -56,19 +58,25 @@ export class MyHolidays {
     }
   }
 
-  /** Creates a holiday with the given (UUIDv7) id. Resolves with it as stored; rejects with the `ApiError` or `NetworkError`. */
+  /**
+   * Creates a holiday with the given (UUIDv7) id. Resolves with it as stored;
+   * rejects with the `ApiError` or `NetworkError`, or with `CancelledError`
+   * when a sign-out (`clear()`) stops it, after which it sends nothing more.
+   */
   async create(holidayId: string, fields: HolidayFields): Promise<Holiday> {
+    const generation = this.#generation;
+    const retry = { ...this.#retry, shouldContinue: () => generation === this.#generation };
     let created: Holiday;
     try {
       created = await withRetry(
         () => this.#api.put('/holidays/{holidayId}', { holidayId }, { ...fields, version: 0 }),
-        this.#retry
+        retry
       );
     } catch (error) {
       if (!(error instanceof ApiError && error.code === 'already-exists')) throw error;
       const { holiday } = await withRetry(
         () => this.#api.get('/holidays/{holidayId}', { holidayId }),
-        this.#retry
+        retry
       );
       if (!sameFields(holiday, fields)) throw error;
       created = holiday;
@@ -82,6 +90,7 @@ export class MyHolidays {
   /** Forgets the list, e.g. on sign-out. */
   clear() {
     this.#seq++;
+    this.#generation++;
     this.list = [];
     this.status = 'idle';
     this.error = null;

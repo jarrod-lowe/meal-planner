@@ -46,7 +46,7 @@ export type MutationResult =
   | { readonly outcome: 'saved' }
   /** Someone else's version is now in the store, and a toast says so. */
   | { readonly outcome: 'conflict' }
-  /** Rolled back, with an error toast. */
+  /** Rolled back, with an error toast; or, with a `CancelledError`, abandoned by sign-out (no toast). */
   | { readonly outcome: 'failed'; readonly error: unknown };
 
 export type HolidayStatus = 'idle' | 'loading' | 'ready' | 'error';
@@ -57,20 +57,39 @@ export interface RetryOptions {
   readonly sleep?: (ms: number) => Promise<void>;
 }
 
+export interface RetryCall extends RetryOptions {
+  /** Checked before each attempt and after each reply; once it's false, the call stops with `CancelledError`. */
+  readonly shouldContinue?: () => boolean;
+}
+
+/** A write or create abandoned because the user signed out (or closed the holiday) meanwhile. */
+export class CancelledError extends Error {
+  constructor() {
+    super('cancelled');
+    this.name = 'CancelledError';
+  }
+}
+
 const defaultDelays = [500, 1000, 2000];
 const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /** Calls `call`, retrying network errors and 5xx after each delay in turn. */
-export async function withRetry<T>(call: () => Promise<T>, options: RetryOptions = {}): Promise<T> {
-  const { delays = defaultDelays, sleep = realSleep } = options;
+export async function withRetry<T>(call: () => Promise<T>, options: RetryCall = {}): Promise<T> {
+  const { delays = defaultDelays, sleep = realSleep, shouldContinue = () => true } = options;
   for (let attempt = 0; ; attempt++) {
+    if (!shouldContinue()) throw new CancelledError();
+    let result: T;
     try {
-      return await call();
+      result = await call();
     } catch (error) {
+      if (!shouldContinue()) throw new CancelledError();
       const delay = delays[attempt];
       if (delay === undefined || !isRetryable(error)) throw error;
       await sleep(delay);
+      continue;
     }
+    if (!shouldContinue()) throw new CancelledError();
+    return result;
   }
 }
 
@@ -149,6 +168,8 @@ interface Op {
  */
 interface Lane {
   readonly key: string;
+  /** The store's generation when the lane opened; a newer one means sign-out or another holiday. */
+  readonly generation: number;
   readonly holidayId: string;
   readonly kind: ItemKind;
   readonly id: string;
@@ -176,6 +197,8 @@ function applyOp(lane: Lane, item: AnyItem | undefined, op: Op): AnyItem | undef
   };
 }
 
+const cancelled = (): MutationResult => ({ outcome: 'failed', error: new CancelledError() });
+
 function project(lane: Lane): AnyItem | undefined {
   return lane.ops.reduce<AnyItem | undefined>(
     (item, op) => applyOp(lane, item, op),
@@ -197,6 +220,13 @@ export class HolidayStore {
   #fetching: Promise<void> | undefined;
   #fetchSeq = 0;
   #lastFetch = Number.NEGATIVE_INFINITY;
+  /**
+   * Bumped by `clear()` (sign-out) and by opening another holiday. Writes from
+   * an older generation send nothing more (each attempt fetches the current
+   * user's token, so a retry could otherwise go out as the next user) and
+   * change nothing.
+   */
+  #generation = 0;
   // Write bookkeeping only; `facts` is what views read, so these needn't be reactive.
   /** Items with writes pending, by holiday, kind and id. */
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- not read by any view
@@ -215,6 +245,7 @@ export class HolidayStore {
   /** Opens a holiday and fetches its facts. */
   load(holidayId: string): Promise<void> {
     if (holidayId !== this.holidayId) {
+      this.#forgetWrites();
       this.holidayId = holidayId;
       this.facts = null;
       this.error = null;
@@ -245,6 +276,7 @@ export class HolidayStore {
 
   /** Closes the holiday, e.g. on sign-out. */
   clear() {
+    this.#forgetWrites();
     this.#fetchSeq++;
     this.#fetching = undefined;
     this.holidayId = null;
@@ -268,6 +300,10 @@ export class HolidayStore {
    *   dropped without a request (the edit fails, the delete is saved);
    * - after a version conflict, it's dropped as part of that conflict, since
    *   it was made against a copy that someone else has since changed.
+   *
+   * Signing out (`clear()`) or opening another holiday abandons every write:
+   * nothing more is sent or applied, and each resolves `failed` with a
+   * `CancelledError` and no toast.
    */
   async mutate(mutation: Mutation): Promise<MutationResult> {
     const facts = this.facts;
@@ -287,7 +323,16 @@ export class HolidayStore {
 
     let lane = this.#lanes.get(key);
     if (!lane) {
-      lane = { key, holidayId, kind, id, confirmed: shown, ops: [], tail: Promise.resolve() };
+      lane = {
+        key,
+        generation: this.#generation,
+        holidayId,
+        kind,
+        id,
+        confirmed: shown,
+        ops: [],
+        tail: Promise.resolve()
+      };
       this.#lanes.set(key, lane);
     }
     const queued = lane;
@@ -338,8 +383,24 @@ export class HolidayStore {
     return next;
   }
 
+  #forgetWrites() {
+    this.#generation++;
+    this.#lanes.clear();
+    this.#touched.clear();
+  }
+
+  #live(lane: Lane): boolean {
+    return lane.generation === this.#generation;
+  }
+
+  /** Retries that stop once the lane is abandoned. */
+  #retryFor(lane: Lane) {
+    return { ...this.#retry, shouldContinue: () => this.#live(lane) };
+  }
+
   /** Shows the lane's item as the server has it, with the pending writes applied. */
   #show(lane: Lane) {
+    if (!this.#live(lane)) return;
     this.#touched.set(lane.key, lane);
     if (this.facts?.holiday.id !== lane.holidayId) return;
     this.facts = putItem(this.facts, lane.kind, lane.id, project(lane));
@@ -358,6 +419,7 @@ export class HolidayStore {
   }
 
   async #attempt(lane: Lane, op: Op): Promise<MutationResult> {
+    if (!this.#live(lane)) return cancelled();
     if (op.cancelled) return { outcome: 'conflict' };
     const { mutation, fields, label } = op;
     const { kind, id, holidayId } = lane;
@@ -372,10 +434,11 @@ export class HolidayStore {
     try {
       lane.confirmed = await withRetry(
         () => this.#send(mutation, holidayId, id, version),
-        this.#retry
+        this.#retryFor(lane)
       );
       return { outcome: 'saved' };
     } catch (error) {
+      if (error instanceof CancelledError) return cancelled();
       if (error instanceof ApiError && error.code === 'version-conflict') {
         return this.#conflict(lane, error.current as AnyItem | null | undefined, label);
       }
@@ -436,10 +499,11 @@ export class HolidayStore {
     try {
       const fresh = await withRetry(
         () => this.#api.get('/holidays/{holidayId}', { holidayId }),
-        this.#retry
+        this.#retryFor(lane)
       );
       stored = readItem(fresh, kind, id);
     } catch (error) {
+      if (error instanceof CancelledError) return cancelled();
       return this.#fail(lane, error, label);
     }
     if (stored && matches(stored, fields)) {
