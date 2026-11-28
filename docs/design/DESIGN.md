@@ -499,7 +499,9 @@ All paths are under `/api`, served through CloudFront.
 #### The Lambda additionally checks
 
 - **Membership**, for every route under `/holidays/{holidayId}` except creating
-  one.
+  one. If the caller has no member item, the Lambda checks for `META`: a
+  missing holiday is `404 not-found`, an existing one `403 not-a-member`.
+- **Dates:** `startDate` is on or before `endDate`.
 - **Holiday doesn't exist yet**, before creating one. This is enforced by the
   transaction's conditions.
 - **Last member:** removing a holiday's last member returns `409 last-member`.
@@ -554,12 +556,14 @@ backend/
 - **Runtime:** `provided.al2023`, arm64, 128 MB, 10 s timeout. Built by Make
   into `build/lambdas/<name>/bootstrap`, zipped, and deployed with
   `aws lambda update-function-code`, following the dnd-planner flow.
-- **Configuration:** environment variables `TABLE_NAME`, plus `USER_POOL_ID`
-  for `users`.
+- **Configuration:** environment variables `TABLE_NAME` for `holidays` and
+  `catalogue`, and `USER_POOL_ID` for `users`.
 - **IAM (least privilege):**
   - `holidays`: `dynamodb:GetItem`, `PutItem`, `DeleteItem`, `Query`,
-    `BatchGetItem`, `BatchWriteItem` and `TransactWriteItems` on the table and
-    `gsi1`.
+    `BatchGetItem`, `BatchWriteItem` and `ConditionCheckItem` on the table,
+    and `Query` on `gsi1`. `TransactWriteItems` isn't an IAM action: each
+    item in a transaction is authorised as its own put, delete or condition
+    check.
   - `catalogue`: `GetItem`, `PutItem` and `Query` on the table.
   - `users`: `cognito-idp:ListUsers` on the pool.
 - **Logging:**

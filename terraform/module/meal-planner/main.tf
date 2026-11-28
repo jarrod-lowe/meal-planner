@@ -8,6 +8,11 @@ terraform {
       # aws.us-east-1 is for the CloudFront certificate, which must be there.
       configuration_aliases = [aws, aws.us-east-1]
     }
+    # The Lambdas' placeholder zips (module lambda).
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.8"
+    }
   }
 }
 

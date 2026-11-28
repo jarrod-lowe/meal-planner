@@ -27,6 +27,8 @@ components:
         providerARNs:
           - '${cognito_user_pool_arn}'
 
+  # API Gateway turns these into models for request validation, which use JSON
+  # Schema draft-04: keep to its keywords. Limits and patterns: DESIGN §5.2.
   schemas:
     Health:
       type: object
@@ -36,9 +38,302 @@ components:
           type: string
           enum: [ok]
 
+    Uuid:
+      type: string
+      pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+
+    Name:
+      type: string
+      minLength: 1
+      maxLength: 100
+
+    LocalDate:
+      description: YYYY-MM-DD
+      type: string
+      pattern: '^\d{4}-\d{2}-\d{2}$'
+
+    TimeZone:
+      description: An IANA time zone name, such as Pacific/Auckland
+      type: string
+      maxLength: 64
+      pattern: '^[A-Za-z_]+(/[A-Za-z0-9_+\-]+)*$'
+
+    InputVersion:
+      description: 0 to create; otherwise the version the client last read
+      type: integer
+      minimum: 0
+
+    Version:
+      description: Starts at 1; the server adds 1 on each update
+      type: integer
+      minimum: 1
+
+    UpdatedAt:
+      description: When the item was last written (ISO 8601, UTC)
+      type: string
+
+    UpdatedBy:
+      description: The sub of the user who last wrote the item
+      type: string
+
+    Holiday:
+      type: object
+      required: [id, name, timeZone, startDate, endDate, version, updatedAt, updatedBy]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          $ref: '#/components/schemas/Name'
+        timeZone:
+          $ref: '#/components/schemas/TimeZone'
+        startDate:
+          $ref: '#/components/schemas/LocalDate'
+        endDate:
+          $ref: '#/components/schemas/LocalDate'
+        version:
+          $ref: '#/components/schemas/Version'
+        updatedAt:
+          $ref: '#/components/schemas/UpdatedAt'
+        updatedBy:
+          $ref: '#/components/schemas/UpdatedBy'
+
+    HolidayInput:
+      type: object
+      required: [name, timeZone, startDate, endDate, version]
+      properties:
+        name:
+          $ref: '#/components/schemas/Name'
+        timeZone:
+          $ref: '#/components/schemas/TimeZone'
+        startDate:
+          $ref: '#/components/schemas/LocalDate'
+        endDate:
+          $ref: '#/components/schemas/LocalDate'
+        version:
+          $ref: '#/components/schemas/InputVersion'
+
+    Member:
+      type: object
+      required: [userSub, version, updatedAt, updatedBy]
+      properties:
+        userSub:
+          $ref: '#/components/schemas/Uuid'
+        version:
+          $ref: '#/components/schemas/Version'
+        updatedAt:
+          $ref: '#/components/schemas/UpdatedAt'
+        updatedBy:
+          $ref: '#/components/schemas/UpdatedBy'
+
+    MemberInput:
+      description: Adding a member is always a create
+      type: object
+      required: [version]
+      properties:
+        version:
+          type: integer
+          enum: [0]
+
+    Attendee:
+      type: object
+      required: [id, name, version, updatedAt, updatedBy]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          $ref: '#/components/schemas/Name'
+        version:
+          $ref: '#/components/schemas/Version'
+        updatedAt:
+          $ref: '#/components/schemas/UpdatedAt'
+        updatedBy:
+          $ref: '#/components/schemas/UpdatedBy'
+
+    AttendeeInput:
+      type: object
+      required: [name, version]
+      properties:
+        name:
+          $ref: '#/components/schemas/Name'
+        version:
+          $ref: '#/components/schemas/InputVersion'
+
+    HolidayFacts:
+      description: >-
+        A whole holiday, with its members. Meals, trips and stock changes are
+        typed by the phases that add them.
+      type: object
+      required: [holiday, attendees, meals, trips, stockChanges, members]
+      properties:
+        holiday:
+          $ref: '#/components/schemas/Holiday'
+        attendees:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attendee'
+        meals:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        trips:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        stockChanges:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/Member'
+
+    HolidayList:
+      type: object
+      required: [holidays]
+      properties:
+        holidays:
+          type: array
+          items:
+            $ref: '#/components/schemas/Holiday'
+
+    User:
+      description: A user who can be made a member. Never includes an email.
+      type: object
+      required: [sub, name]
+      properties:
+        sub:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+
+    UserList:
+      type: object
+      required: [users]
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+
+    ErrorDetail:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            - validation
+            - not-a-member
+            - not-found
+            - version-conflict
+            - already-exists
+            - last-member
+            - internal
+        message:
+          type: string
+
+    Error:
+      description: Every error the Lambdas return (DESIGN §5.3)
+      type: object
+      required: [error]
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorDetail'
+
+    VersionConflictError:
+      description: A version-conflict error, with the item as it's stored now
+      type: object
+      required: [error, current]
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorDetail'
+        current:
+          description: The stored item, or null if it has been deleted
+          type: object
+          nullable: true
+          additionalProperties: true
+
 # Every route needs a signed-in user unless it opts out.
 security:
   - CognitoAuthorizer: []
+
+# Shared pieces of the operations below, as YAML anchors. Terraform resolves
+# them (yamldecode, then jsonencode) before importing, so API Gateway sees
+# plain JSON.
+x-shared:
+  holidays-integration: &holidays-integration
+    type: aws_proxy
+    httpMethod: POST
+    uri: '${holidays_lambda_invoke_arn}'
+    passthroughBehavior: when_no_match
+  users-integration: &users-integration
+    type: aws_proxy
+    httpMethod: POST
+    uri: '${users_lambda_invoke_arn}'
+    passthroughBehavior: when_no_match
+  signed-in: &signed-in
+    - CognitoAuthorizer: []
+  holiday-id: &holiday-id
+    name: holidayId
+    in: path
+    required: true
+    schema:
+      $ref: '#/components/schemas/Uuid'
+  user-sub: &user-sub
+    name: userSub
+    in: path
+    required: true
+    description: The member's Cognito sub
+    schema:
+      $ref: '#/components/schemas/Uuid'
+  item-id: &item-id
+    name: id
+    in: path
+    required: true
+    schema:
+      $ref: '#/components/schemas/Uuid'
+  bad-request: &bad-request
+    description: The request failed validation (validation)
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/Error'
+  unauthorised: &unauthorised
+    description: Missing or invalid token (from API Gateway)
+  not-a-member: &not-a-member
+    description: The caller isn't a member of the holiday (not-a-member)
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/Error'
+  not-found: &not-found
+    description: The holiday doesn't exist (not-found)
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/Error'
+  conflict: &conflict
+    description: >-
+      The stored version differs (version-conflict, with the current item), or
+      a create found the item already exists (already-exists)
+    content:
+      application/json:
+        schema:
+          oneOf:
+            - $ref: '#/components/schemas/VersionConflictError'
+            - $ref: '#/components/schemas/Error'
+  internal: &internal
+    description: Anything else (internal)
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/Error'
+  deleted: &deleted
+    description: Deleted (also when it didn't exist)
 
 paths:
   /health:
@@ -63,3 +358,230 @@ paths:
             statusCode: '200'
             responseTemplates:
               application/json: '{"status": "ok"}'
+
+  /holidays:
+    get:
+      summary: List my holidays
+      operationId: listHolidays
+      security: *signed-in
+      x-amazon-apigateway-request-validator: all
+      x-amazon-apigateway-integration: *holidays-integration
+      responses:
+        '200':
+          description: The holidays the caller is a member of
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HolidayList'
+        '401': *unauthorised
+        '500': *internal
+
+  /holidays/{holidayId}:
+    get:
+      summary: Get a holiday, with all its items and members
+      operationId: getHoliday
+      security: *signed-in
+      x-amazon-apigateway-request-validator: all
+      x-amazon-apigateway-integration: *holidays-integration
+      parameters:
+        - *holiday-id
+      responses:
+        '200':
+          description: The holiday
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HolidayFacts'
+        '400': *bad-request
+        '401': *unauthorised
+        '403': *not-a-member
+        '404': *not-found
+        '500': *internal
+    put:
+      summary: Create (version 0) or update a holiday
+      description: Creating one also makes the caller its first member.
+      operationId: putHoliday
+      security: *signed-in
+      x-amazon-apigateway-request-validator: all
+      x-amazon-apigateway-integration: *holidays-integration
+      parameters:
+        - *holiday-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HolidayInput'
+      responses:
+        '200':
+          description: The holiday as stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Holiday'
+        '400': *bad-request
+        '401': *unauthorised
+        '403': *not-a-member
+        '404': *not-found
+        '409': *conflict
+        '500': *internal
+    delete:
+      summary: Delete a holiday and everything in it
+      operationId: deleteHoliday
+      security: *signed-in
+      x-amazon-apigateway-request-validator: all
+      x-amazon-apigateway-integration: *holidays-integration
+      parameters:
+        - *holiday-id
+      responses:
+        '204': *deleted
+        '400': *bad-request
+        '401': *unauthorised
+        '403': *not-a-member
+        '404': *not-found
+        '500': *internal
+
+  /holidays/{holidayId}/members/{userSub}:
+    put:
+      summary: Add a member
+      operationId: putMember
+      security: *signed-in
+      x-amazon-apigateway-request-validator: all
+      x-amazon-apigateway-integration: *holidays-integration
+      parameters:
+        - *holiday-id
+        - *user-sub
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemberInput'
+      responses:
+        '200':
+          description: The member as stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Member'
+        '400': *bad-request
+        '401': *unauthorised
+        '403': *not-a-member
+        '404': *not-found
+        '409': *conflict
+        '500': *internal
+    delete:
+      summary: Remove a member (including yourself)
+      operationId: deleteMember
+      security: *signed-in
+      x-amazon-apigateway-request-validator: all
+      x-amazon-apigateway-integration: *holidays-integration
+      parameters:
+        - *holiday-id
+        - *user-sub
+      responses:
+        '204': *deleted
+        '400': *bad-request
+        '401': *unauthorised
+        '403': *not-a-member
+        '404': *not-found
+        '409':
+          description: That's the holiday's last member (last-member)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': *internal
+
+  /holidays/{holidayId}/attendees/{id}:
+    put:
+      summary: Create (version 0) or update an attendee
+      operationId: putAttendee
+      security: *signed-in
+      x-amazon-apigateway-request-validator: all
+      x-amazon-apigateway-integration: *holidays-integration
+      parameters:
+        - *holiday-id
+        - *item-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttendeeInput'
+      responses:
+        '200':
+          description: The attendee as stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attendee'
+        '400': *bad-request
+        '401': *unauthorised
+        '403': *not-a-member
+        '404': *not-found
+        '409': *conflict
+        '500': *internal
+    delete:
+      summary: Delete an attendee
+      description: >-
+        The same as the generic delete with kind attendees. It needs its own
+        method, because API Gateway routes the static attendees segment here
+        rather than to {kind}.
+      operationId: deleteAttendee
+      security: *signed-in
+      x-amazon-apigateway-request-validator: all
+      x-amazon-apigateway-integration: *holidays-integration
+      parameters:
+        - *holiday-id
+        - *item-id
+      responses:
+        '204': *deleted
+        '400': *bad-request
+        '401': *unauthorised
+        '403': *not-a-member
+        '404': *not-found
+        '500': *internal
+
+  /holidays/{holidayId}/{kind}/{id}:
+    delete:
+      summary: Delete one of a holiday's items
+      description: >-
+        kind is one of attendees, meals, trips or stock-changes. The Lambda
+        checks it, and accepts only the kinds built so far.
+      operationId: deleteHolidayItem
+      security: *signed-in
+      x-amazon-apigateway-request-validator: all
+      x-amazon-apigateway-integration: *holidays-integration
+      parameters:
+        - *holiday-id
+        - name: kind
+          in: path
+          required: true
+          schema:
+            type: string
+        - *item-id
+      responses:
+        '204': *deleted
+        '400': *bad-request
+        '401': *unauthorised
+        '403': *not-a-member
+        '404': *not-found
+        '500': *internal
+
+  /users:
+    get:
+      summary: List the users who can be made members
+      operationId: listUsers
+      security: *signed-in
+      x-amazon-apigateway-request-validator: all
+      x-amazon-apigateway-integration: *users-integration
+      responses:
+        '200':
+          description: Every user's sub and name
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserList'
+        '401': *unauthorised
+        '500': *internal

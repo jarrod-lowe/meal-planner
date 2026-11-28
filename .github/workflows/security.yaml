@@ -56,7 +56,8 @@ jobs:
           # `toolchain` line) instead of the action's default, `stable`.
           go-version-input: ''
           go-version-file: backend/go.mod
-          # No backend/go.sum yet, so there is nothing to key a cache on.
+          # The action has no cache-dependency-path input, and its default looks
+          # for go.sum at the repo root, so caching stays off.
           cache: false
           work-dir: backend
 

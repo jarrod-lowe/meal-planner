@@ -37,3 +37,16 @@ output "api_id" {
   description = "API Gateway REST API ID"
   value       = aws_api_gateway_rest_api.api.id
 }
+
+output "table_name" {
+  description = "DynamoDB table name"
+  value       = aws_dynamodb_table.data.name
+}
+
+output "lambda_function_names" {
+  description = "Lambda function names, by Lambda (for make deploy-lambdas)"
+  value = {
+    holidays = module.holidays.function_name
+    users    = module.users.function_name
+  }
+}

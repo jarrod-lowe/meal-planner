@@ -12,6 +12,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 6.74"
     }
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.8"
+    }
   }
 
   # bucket, key and region come from Make (-backend-config).

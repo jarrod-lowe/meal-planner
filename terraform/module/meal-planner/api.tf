@@ -7,14 +7,37 @@
 
 locals {
   api_name = "${local.resource_prefix}-api"
+
+  # openapi.yaml shares pieces of its operations through YAML anchors under
+  # `x-shared`. Decoding resolves them, and the block itself is dropped, so
+  # API Gateway imports plain JSON with nothing it doesn't know.
+  openapi = yamldecode(templatefile("${path.module}/openapi.yaml", {
+    cognito_user_pool_arn      = aws_cognito_user_pool.users.arn
+    holidays_lambda_invoke_arn = module.holidays.invoke_arn
+    users_lambda_invoke_arn    = module.users.invoke_arn
+  }))
+
+  # VersionConflictError.current is `nullable` (OpenAPI 3.0) in openapi.yaml,
+  # so openapi-typescript allows null. API Gateway's models are JSON Schema
+  # draft-04, which has no `nullable`, so the imported body says the same with
+  # a type list instead.
+  openapi_schemas = local.openapi.components.schemas
+  openapi_conflict = merge(local.openapi_schemas.VersionConflictError, {
+    properties = merge(local.openapi_schemas.VersionConflictError.properties, {
+      current = { type = ["object", "null"] }
+    })
+  })
+  openapi_body = merge({ for k, v in local.openapi : k => v if k != "x-shared" }, {
+    components = merge(local.openapi.components, {
+      schemas = merge(local.openapi_schemas, { VersionConflictError = local.openapi_conflict })
+    })
+  })
 }
 
 resource "aws_api_gateway_rest_api" "api" {
   name        = local.api_name
   description = "Meal planner API (${var.environment})"
-  body = templatefile("${path.module}/openapi.yaml", {
-    cognito_user_pool_arn = aws_cognito_user_pool.users.arn
-  })
+  body        = jsonencode(local.openapi_body)
 
   endpoint_configuration {
     types = ["REGIONAL"]
