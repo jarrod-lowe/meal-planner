@@ -150,23 +150,23 @@ references: DESIGN §1 (conventions), §2.2 (stored facts), §4 (DynamoDB), §5
     (replace with `current` and a toast with **Refresh holiday**), retry
     with backoff up to 3 times on network errors and `5xx`, rollback with an
     error toast, and the `already-exists` re-fetch rule from §5.3.
-- [ ] **14. Holiday list.** `/` lists my holidays (name and dates) and has a
+- [x] **14. Holiday list.** `/` lists my holidays (name and dates) and has a
       create form (name, start and end dates, time zone defaulting to the
       browser's). Creating goes to the new holiday.
   - Tests first: component tests for the form's validation and the time-zone
     default; the list's empty state.
-- [ ] **15. Holiday layout and Overview.** `/holidays/[holidayId]/+layout`:
+- [x] **15. Holiday layout and Overview.** `/holidays/[holidayId]/+layout`:
       loads the holiday; a bottom tab bar on mobile and a sidebar on desktop
       with only Overview and People enabled (the others shown disabled); a
       refresh button. Overview shows the name and dates. A `404` or `403`
       shows a message with a link back to `/`.
   - Tests first: component tests for the disabled tabs and the error states.
-- [ ] **16. People.** `/holidays/[holidayId]/people`: attendees (add, rename,
+- [x] **16. People.** `/holidays/[holidayId]/people`: attendees (add, rename,
       delete) and members (add from `GET /users`, showing names; remove;
       removing yourself confirms and returns to `/`; the last-member error
       shown plainly).
   - Tests first: component tests for each action and the confirmation.
-- [ ] **17. E2E.** Playwright against the dev server with the API mocked by
+- [x] **17. E2E.** Playwright against the dev server with the API mocked by
       route interception: create a holiday, add an attendee, add a member,
       and a version conflict showing the toast. Axe checks on each new page,
       desktop and Pixel 7.
