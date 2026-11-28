@@ -375,7 +375,7 @@ describe('MealEditor', () => {
     expect(writes()).toHaveLength(1);
 
     answer(
-      new Response(JSON.stringify(saved({ version: 4 })), {
+      new Response(JSON.stringify(saved({ recipeId: null, version: 4 })), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
       })
@@ -452,7 +452,7 @@ describe('MealEditor', () => {
     await user.type(nameField(), 'Later');
 
     answer(
-      new Response(JSON.stringify(saved({ version: 4 })), {
+      new Response(JSON.stringify(saved({ recipeId: null, version: 4 })), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
       })
@@ -480,6 +480,34 @@ describe('MealEditor, creating a recipe on the way', () => {
     await user.keyboard(query);
     await user.click(createOption(query));
   }
+
+  it('offers no recipe-making detour while a saved meal’s update is in flight', async () => {
+    const oncreaterecipe = vi.fn();
+    const meals = [saved({ recipeId: null })];
+    const { user, reply, drafts } = await setup({ mealId, meals, oncreaterecipe });
+    const put = vi.spyOn(drafts, 'put');
+    let answer: (response: Response) => void = () => undefined;
+    reply('PUT', new Promise<Response>((resolve) => (answer = resolve)));
+
+    await user.click(button(t('meal.save')));
+    await user.click(screen.getByRole('combobox', { name: t('meal.findRecipe') }));
+    await user.keyboard('Lasagne');
+
+    // A stash made now would be cleared when the save lands, losing these edits.
+    const option = { name: t('recipePicker.create', { query: 'Lasagne' }) };
+    expect(screen.queryByRole('option', option)).toBeNull();
+    expect(put).not.toHaveBeenCalled();
+    expect(oncreaterecipe).not.toHaveBeenCalled();
+
+    answer(
+      new Response(JSON.stringify(saved({ recipeId: null, version: 4 })), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    );
+    await vi.waitFor(() => expect(button(t('meal.save')).getAttribute('aria-disabled')).not.toBe('true'));
+    await vi.waitFor(() => expect(screen.getByRole('option', option)).toBeTruthy());
+  });
 
   it('keeps a new meal’s draft while a recipe is made, then uses the new recipe', async () => {
     const oncreaterecipe = vi.fn();

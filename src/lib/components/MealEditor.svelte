@@ -305,7 +305,8 @@
 
   /** Keeps the draft, as it is, for when the user comes back with a recipe. */
   function createRecipe(query: string) {
-    if (locked) return;
+    // A save in flight would clear the stash when it lands, losing the newer edits.
+    if (busy) return;
     drafts.put(draftKey, {
       id,
       mealtimeId,
@@ -462,7 +463,7 @@
             store={catalogue}
             label={t('meal.findRecipe')}
             onselect={chooseRecipe}
-            oncreate={oncreaterecipe ? createRecipe : undefined}
+            oncreate={oncreaterecipe && !busy ? createRecipe : undefined}
           />
         {/if}
       </section>
