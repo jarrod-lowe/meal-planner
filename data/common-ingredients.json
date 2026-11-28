@@ -1,0 +1,822 @@
+[
+  {
+    "name": "Apple",
+    "unit": "each",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Avocado",
+    "unit": "each",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Banana",
+    "unit": "each",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Basil",
+    "unit": "bunch",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Broccoli",
+    "unit": "each",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Cabbage",
+    "unit": "each",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Capsicum",
+    "unit": "each",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Carrot",
+    "unit": "each",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Cauliflower",
+    "unit": "each",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Celery",
+    "unit": "each",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Cherry tomatoes",
+    "unit": "punnet",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Coriander",
+    "unit": "bunch",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Corn",
+    "unit": "each",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Courgette",
+    "unit": "each",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Cucumber",
+    "unit": "each",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Garlic",
+    "unit": "each",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Ginger",
+    "unit": "g",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Grapes",
+    "unit": "kg",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Green beans",
+    "unit": "g",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Kiwifruit",
+    "unit": "each",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Kumara",
+    "unit": "kg",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Lemon",
+    "unit": "each",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Lettuce",
+    "unit": "each",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Lime",
+    "unit": "each",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Mint",
+    "unit": "bunch",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Mushrooms",
+    "unit": "g",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Onion",
+    "unit": "each",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Orange",
+    "unit": "each",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Parsley",
+    "unit": "bunch",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Potato",
+    "unit": "kg",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Pumpkin",
+    "unit": "kg",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Red onion",
+    "unit": "each",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Salad leaves",
+    "unit": "g",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Spinach",
+    "unit": "g",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Spring onions",
+    "unit": "bunch",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Strawberries",
+    "unit": "punnet",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Tomato",
+    "unit": "each",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Tomato",
+    "unit": "kg",
+    "shopSection": "produce"
+  },
+  {
+    "name": "Bagels",
+    "unit": "packet",
+    "shopSection": "bakery"
+  },
+  {
+    "name": "Bread rolls",
+    "unit": "packet",
+    "shopSection": "bakery"
+  },
+  {
+    "name": "Burger buns",
+    "unit": "packet",
+    "shopSection": "bakery"
+  },
+  {
+    "name": "Croissants",
+    "unit": "packet",
+    "shopSection": "bakery"
+  },
+  {
+    "name": "Crumpets",
+    "unit": "packet",
+    "shopSection": "bakery"
+  },
+  {
+    "name": "English muffins",
+    "unit": "packet",
+    "shopSection": "bakery"
+  },
+  {
+    "name": "Pita bread",
+    "unit": "packet",
+    "shopSection": "bakery"
+  },
+  {
+    "name": "Sourdough",
+    "unit": "loaf",
+    "shopSection": "bakery"
+  },
+  {
+    "name": "Tortillas",
+    "unit": "packet",
+    "shopSection": "bakery"
+  },
+  {
+    "name": "White bread",
+    "unit": "loaf",
+    "shopSection": "bakery"
+  },
+  {
+    "name": "Wholemeal bread",
+    "unit": "loaf",
+    "shopSection": "bakery"
+  },
+  {
+    "name": "Bacon",
+    "unit": "g",
+    "shopSection": "meat-fish"
+  },
+  {
+    "name": "Chicken breast",
+    "unit": "kg",
+    "shopSection": "meat-fish"
+  },
+  {
+    "name": "Chicken drumsticks",
+    "unit": "kg",
+    "shopSection": "meat-fish"
+  },
+  {
+    "name": "Chicken thighs",
+    "unit": "kg",
+    "shopSection": "meat-fish"
+  },
+  {
+    "name": "Ham",
+    "unit": "g",
+    "shopSection": "meat-fish"
+  },
+  {
+    "name": "Lamb chops",
+    "unit": "kg",
+    "shopSection": "meat-fish"
+  },
+  {
+    "name": "Leg of lamb",
+    "unit": "kg",
+    "shopSection": "meat-fish"
+  },
+  {
+    "name": "Mince",
+    "unit": "g",
+    "shopSection": "meat-fish"
+  },
+  {
+    "name": "Mince",
+    "unit": "kg",
+    "shopSection": "meat-fish"
+  },
+  {
+    "name": "Prawns",
+    "unit": "g",
+    "shopSection": "meat-fish"
+  },
+  {
+    "name": "Salami",
+    "unit": "g",
+    "shopSection": "meat-fish"
+  },
+  {
+    "name": "Salmon fillets",
+    "unit": "g",
+    "shopSection": "meat-fish"
+  },
+  {
+    "name": "Sausages",
+    "unit": "kg",
+    "shopSection": "meat-fish"
+  },
+  {
+    "name": "Sausages",
+    "unit": "packet",
+    "shopSection": "meat-fish"
+  },
+  {
+    "name": "Steak",
+    "unit": "kg",
+    "shopSection": "meat-fish"
+  },
+  {
+    "name": "White fish fillets",
+    "unit": "g",
+    "shopSection": "meat-fish"
+  },
+  {
+    "name": "Whole chicken",
+    "unit": "each",
+    "shopSection": "meat-fish"
+  },
+  {
+    "name": "Butter",
+    "unit": "g",
+    "shopSection": "dairy"
+  },
+  {
+    "name": "Cheese",
+    "unit": "g",
+    "shopSection": "dairy"
+  },
+  {
+    "name": "Cream",
+    "unit": "ml",
+    "shopSection": "dairy"
+  },
+  {
+    "name": "Cream cheese",
+    "unit": "g",
+    "shopSection": "dairy"
+  },
+  {
+    "name": "Eggs",
+    "unit": "dozen",
+    "shopSection": "dairy"
+  },
+  {
+    "name": "Eggs",
+    "unit": "each",
+    "shopSection": "dairy"
+  },
+  {
+    "name": "Feta",
+    "unit": "g",
+    "shopSection": "dairy"
+  },
+  {
+    "name": "Greek yoghurt",
+    "unit": "g",
+    "shopSection": "dairy"
+  },
+  {
+    "name": "Halloumi",
+    "unit": "g",
+    "shopSection": "dairy"
+  },
+  {
+    "name": "Milk",
+    "unit": "l",
+    "shopSection": "dairy"
+  },
+  {
+    "name": "Milk",
+    "unit": "ml",
+    "shopSection": "dairy"
+  },
+  {
+    "name": "Mozzarella",
+    "unit": "g",
+    "shopSection": "dairy"
+  },
+  {
+    "name": "Parmesan",
+    "unit": "g",
+    "shopSection": "dairy"
+  },
+  {
+    "name": "Sour cream",
+    "unit": "ml",
+    "shopSection": "dairy"
+  },
+  {
+    "name": "Yoghurt",
+    "unit": "g",
+    "shopSection": "dairy"
+  },
+  {
+    "name": "Fish fingers",
+    "unit": "box",
+    "shopSection": "frozen"
+  },
+  {
+    "name": "Frozen berries",
+    "unit": "g",
+    "shopSection": "frozen"
+  },
+  {
+    "name": "Frozen chips",
+    "unit": "kg",
+    "shopSection": "frozen"
+  },
+  {
+    "name": "Frozen corn",
+    "unit": "g",
+    "shopSection": "frozen"
+  },
+  {
+    "name": "Frozen mixed vegetables",
+    "unit": "g",
+    "shopSection": "frozen"
+  },
+  {
+    "name": "Frozen peas",
+    "unit": "g",
+    "shopSection": "frozen"
+  },
+  {
+    "name": "Frozen pizza",
+    "unit": "each",
+    "shopSection": "frozen"
+  },
+  {
+    "name": "Hash browns",
+    "unit": "packet",
+    "shopSection": "frozen"
+  },
+  {
+    "name": "Ice blocks",
+    "unit": "box",
+    "shopSection": "frozen"
+  },
+  {
+    "name": "Ice cream",
+    "unit": "l",
+    "shopSection": "frozen"
+  },
+  {
+    "name": "Baked beans",
+    "unit": "can",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Balsamic vinegar",
+    "unit": "bottle",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Barbecue sauce",
+    "unit": "bottle",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Biscuits",
+    "unit": "packet",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Breakfast cereal",
+    "unit": "box",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Chickpeas",
+    "unit": "can",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Chilli flakes",
+    "unit": "jar",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Chocolate",
+    "unit": "g",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Chopped tomatoes",
+    "unit": "can",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Coconut milk",
+    "unit": "can",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Coffee",
+    "unit": "g",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Crackers",
+    "unit": "box",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Curry paste",
+    "unit": "jar",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Flour",
+    "unit": "kg",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Honey",
+    "unit": "jar",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Jam",
+    "unit": "jar",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Mayonnaise",
+    "unit": "jar",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Mixed herbs",
+    "unit": "jar",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Mustard",
+    "unit": "jar",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Noodles",
+    "unit": "packet",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Oats",
+    "unit": "kg",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Olive oil",
+    "unit": "bottle",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Paprika",
+    "unit": "jar",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Pasta",
+    "unit": "g",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Pasta sauce",
+    "unit": "jar",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Peanut butter",
+    "unit": "jar",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Pepper",
+    "unit": "g",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Potato chips",
+    "unit": "packet",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Rice",
+    "unit": "kg",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Salt",
+    "unit": "g",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Soy sauce",
+    "unit": "bottle",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Stock",
+    "unit": "ml",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Stock cubes",
+    "unit": "box",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Sugar",
+    "unit": "g",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Sugar",
+    "unit": "kg",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Tea bags",
+    "unit": "box",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Tomato paste",
+    "unit": "tube",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Tomato sauce",
+    "unit": "bottle",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Tuna",
+    "unit": "can",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Vegetable oil",
+    "unit": "bottle",
+    "shopSection": "pantry"
+  },
+  {
+    "name": "Apple juice",
+    "unit": "l",
+    "shopSection": "drinks"
+  },
+  {
+    "name": "Beer",
+    "unit": "bottle",
+    "shopSection": "drinks"
+  },
+  {
+    "name": "Beer",
+    "unit": "can",
+    "shopSection": "drinks"
+  },
+  {
+    "name": "Cider",
+    "unit": "can",
+    "shopSection": "drinks"
+  },
+  {
+    "name": "Cordial",
+    "unit": "bottle",
+    "shopSection": "drinks"
+  },
+  {
+    "name": "Lemonade",
+    "unit": "bottle",
+    "shopSection": "drinks"
+  },
+  {
+    "name": "Orange juice",
+    "unit": "l",
+    "shopSection": "drinks"
+  },
+  {
+    "name": "Soft drink",
+    "unit": "bottle",
+    "shopSection": "drinks"
+  },
+  {
+    "name": "Sparkling water",
+    "unit": "bottle",
+    "shopSection": "drinks"
+  },
+  {
+    "name": "Water",
+    "unit": "bottle",
+    "shopSection": "drinks"
+  },
+  {
+    "name": "Wine",
+    "unit": "bottle",
+    "shopSection": "drinks"
+  },
+  {
+    "name": "Aluminium foil",
+    "unit": "roll",
+    "shopSection": "household"
+  },
+  {
+    "name": "Baking paper",
+    "unit": "roll",
+    "shopSection": "household"
+  },
+  {
+    "name": "Cling film",
+    "unit": "roll",
+    "shopSection": "household"
+  },
+  {
+    "name": "Dishwasher tablets",
+    "unit": "box",
+    "shopSection": "household"
+  },
+  {
+    "name": "Dishwashing liquid",
+    "unit": "bottle",
+    "shopSection": "household"
+  },
+  {
+    "name": "Firelighters",
+    "unit": "box",
+    "shopSection": "household"
+  },
+  {
+    "name": "Hand soap",
+    "unit": "bottle",
+    "shopSection": "household"
+  },
+  {
+    "name": "Laundry powder",
+    "unit": "box",
+    "shopSection": "household"
+  },
+  {
+    "name": "Matches",
+    "unit": "box",
+    "shopSection": "household"
+  },
+  {
+    "name": "Paper towels",
+    "unit": "roll",
+    "shopSection": "household"
+  },
+  {
+    "name": "Rubbish bags",
+    "unit": "roll",
+    "shopSection": "household"
+  },
+  {
+    "name": "Sponges",
+    "unit": "packet",
+    "shopSection": "household"
+  },
+  {
+    "name": "Sunscreen",
+    "unit": "bottle",
+    "shopSection": "household"
+  },
+  {
+    "name": "Tissues",
+    "unit": "box",
+    "shopSection": "household"
+  },
+  {
+    "name": "Toilet paper",
+    "unit": "roll",
+    "shopSection": "household"
+  },
+  {
+    "name": "Toothpaste",
+    "unit": "tube",
+    "shopSection": "household"
+  },
+  {
+    "name": "Barbecue gas",
+    "unit": "each",
+    "shopSection": "other"
+  },
+  {
+    "name": "Birthday candles",
+    "unit": "packet",
+    "shopSection": "other"
+  },
+  {
+    "name": "Charcoal",
+    "unit": "bag",
+    "shopSection": "other"
+  },
+  {
+    "name": "Dog food",
+    "unit": "can",
+    "shopSection": "other"
+  },
+  {
+    "name": "Firewood",
+    "unit": "bag",
+    "shopSection": "other"
+  },
+  {
+    "name": "Ice",
+    "unit": "bag",
+    "shopSection": "other"
+  }
+]

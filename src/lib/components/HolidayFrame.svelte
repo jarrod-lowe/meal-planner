@@ -62,12 +62,13 @@
 
 {#if facts}
   <div class="frame">
-    <header>
+    <!-- Not a <header>: the app header is the page's one banner landmark. -->
+    <section class="bar" aria-label={t('holiday.actions')}>
       <a class="home" href={resolve('/')}>{t('holiday.allHolidays')}</a>
       <button type="button" onclick={refresh} aria-disabled={refreshing} aria-busy={refreshing}>
         {refreshing ? t('holiday.refreshing') : t('holiday.refresh')}
       </button>
-    </header>
+    </section>
     <HolidayNav {holidayId} {current} />
     <div class="content">
       {@render children()}
@@ -104,7 +105,7 @@
     padding-block-end: var(--space-12);
   }
 
-  header {
+  .bar {
     grid-area: header;
     display: flex;
     flex-wrap: wrap;

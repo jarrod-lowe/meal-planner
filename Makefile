@@ -227,7 +227,10 @@ create-user: $(if $(and $(EMAIL),$(NAME)),$(env-output-json))
 
 # Write a sample holiday to test: the user (by EMAIL) as its member, and four
 # attendees. The items are built by scripts/seed-test.jq and written in one
-# transaction, each only if it doesn't exist yet.
+# transaction, each only if it doesn't exist yet. Then write the sample
+# catalogue from scripts/seed-catalogue.json, which has fixed IDs: one put per
+# item, each only if it doesn't exist, so running it again adds nothing new
+# (a transaction would fail as a whole once any item exists).
 seed-test: override ENV = test
 seed-test: $(if $(EMAIL),terraform/environment/test/output.json)
 	$(if $(EMAIL),,$(error Set EMAIL=<the user's email address>))
@@ -241,9 +244,24 @@ seed-test: $(if $(EMAIL),terraform/environment/test/output.json)
 		--rawfile random build/seed-test-random.txt \
 		-f scripts/seed-test.jq > build/seed-test.json
 	aws dynamodb transact-write-items --transact-items file://build/seed-test.json
+	jq --arg table "$(call tf-output,table_name)" \
+		--slurpfile user build/seed-test-user.json \
+		-f scripts/seed-catalogue.jq scripts/seed-catalogue.json > build/seed-catalogue.json
+	@jq -c '.[]' build/seed-catalogue.json | while read -r item; do \
+		if aws dynamodb put-item --cli-input-json "$$item" 2> build/seed-catalogue-error.txt; then \
+			echo added; \
+		elif rg -q ConditionalCheckFailedException build/seed-catalogue-error.txt; then \
+			echo existing; \
+		else \
+			cat build/seed-catalogue-error.txt >&2; exit 1; \
+		fi; \
+	done > build/seed-catalogue-results.txt
 	@jq -r --arg site "$(call tf-output,site_url)" \
 		'.[0].Put.Item.id.S | "Seeded holiday \(.)\n\($$site)/holidays/\(.)"' build/seed-test.json
-	@rm -f build/seed-test-user.json build/seed-test-random.txt build/seed-test.json
+	@jq -Rnr '[inputs] | "catalogue: \(map(select(. == "added")) | length) added, \(map(select(. == "existing")) | length) already there"' \
+		build/seed-catalogue-results.txt
+	@rm -f build/seed-test-user.json build/seed-test-random.txt build/seed-test.json \
+		build/seed-catalogue.json build/seed-catalogue-error.txt build/seed-catalogue-results.txt
 
 # ============================================
 # Lambdas
@@ -488,7 +506,7 @@ help:
 	@echo "  make build-ui ENV=   Build the UI with ENV's (test or prod) Cognito settings"
 	@echo "  make push-ui ENV=    Upload build/ to ENV's bucket and invalidate CloudFront"
 	@echo "  make create-user ENV= EMAIL= NAME=  Admin-create a user (Cognito emails a password)"
-	@echo "  make seed-test EMAIL=  Write a sample holiday to test, with that user as its member"
+	@echo "  make seed-test EMAIL=  Write a sample holiday (that user as its member) and catalogue to test"
 	@echo ""
 	@echo "Frontend:"
 	@echo "  make dev             Start the Vite dev server; proxies /api to test once .env.local exists"

@@ -90,54 +90,54 @@ picker), §10 (component tests); ARCHITECTURE "Helpfulness".
 - [x] **6. Deploy to test.** The agent runs `make deploy-test`; then
       `GET /api/catalogue` without a token returns `401`, and the function
       runs the built zip.
-- [ ] **7. PR and review.** Open the PR; Codex loop.
+- [x] **7. PR and review.** Open the PR; Codex loop.
 
 ## PR 3.2: Catalogue UI
 
-- [ ] **8. Shared write queue.** Extract the queue from
+- [x] **8. Shared write queue.** Extract the queue from
       `holiday.svelte.ts` into `src/lib/stores/mutation-queue.ts`.
   - Tests first: the queue's own tests (moved and generalised); the holiday
     store's tests pass unchanged.
-- [ ] **9. Catalogue store.** `src/lib/stores/catalogue.svelte.ts`: load once
+- [x] **9. Catalogue store.** `src/lib/stores/catalogue.svelte.ts`: load once
       per session, refetch on focus at most every 30 s and on **Refresh**,
       clear on sign-out, `mutate()` for both kinds, plus hide and show again.
   - Tests first: load, throttle, create, update, hide, show again, a
     conflict, and sign-out cancellation.
-- [ ] **10. Search and data.** `src/lib/catalogue/search.ts` (Fuse.js, same
+- [x] **10. Search and data.** `src/lib/catalogue/search.ts` (Fuse.js, same
       names together, hidden items left out unless asked) and
       `data/common-ingredients.json` with its validation test.
   - Tests first: typo matching (a misspelt "tomato"), grouping by name, hidden items,
     and suggestions that leave out names + units already in the catalogue.
-- [ ] **11. App header.** Holidays, Recipes and Ingredients links with
+- [x] **11. App header.** Holidays, Recipes and Ingredients links with
       `aria-current`, and sign-out.
   - Tests first: component test for the links and the active page.
-- [ ] **12. Ingredient picker.** `IngredientPicker.svelte`: results as
+- [x] **12. Ingredient picker.** `IngredientPicker.svelte`: results as
       "Sugar · g · Pantry", suggestions marked *Add to catalogue*, an inline
       create form (name, unit with suggestions, shop section), and a duplicate
       warning for an existing name + unit.
   - Tests first: fuzzy match, keyboard navigation and selection, choosing a
     suggestion creates it, create new, and the duplicate warning.
-- [ ] **13. Ingredients page.** `/ingredients`: search, a list grouped by
+- [x] **13. Ingredients page.** `/ingredients`: search, a list grouped by
       shop section, inline edit (name, unit, section), add via the create
       form, hide, **Show hidden** and show again.
   - Tests first: component tests for edit, hide and show again.
-- [ ] **14. Recipes.** `/recipes`: search, list, **Show hidden**, and a new
+- [x] **14. Recipes.** `/recipes`: search, list, **Show hidden**, and a new
       recipe button. `/recipes/[recipeId]` (`new` creates): name, servings,
       notes, and lines of picker + quantity with the unit beside it. Enter on
       a quantity adds a line; lines can be removed; save is one `PUT`; hide
       and show again.
   - Tests first: component tests for the keyboard flow, line removal, the
     one-line-per-ingredient rule, and save.
-- [ ] **15. Recipe picker.** `RecipePicker.svelte`: a fuzzy combobox with a
+- [x] **15. Recipe picker.** `RecipePicker.svelte`: a fuzzy combobox with a
       *Create new recipe* option, for phase 4.
   - Tests first: component tests for matching, keyboard selection, and the
     create option.
-- [ ] **16. Seed.** `make seed-test` adds the catalogue items, per the
+- [x] **16. Seed.** `make seed-test` adds the catalogue items, per the
       decision above.
-- [ ] **17. E2E.** With the mocked API: create an ingredient from a
+- [x] **17. E2E.** With the mocked API: create an ingredient from a
       suggestion, build a recipe with the picker (keyboard only), hide it
       and show it again. Axe checks on `/ingredients`, `/recipes` and the
       editor, desktop and Pixel 7.
-- [ ] **18. Verify in test (human).** The agent runs `make deploy-test` and
+- [x] **18. Verify in test (human).** The agent runs `make deploy-test` and
       `make seed-test`; the human checks the "You can" list.
 - [ ] **19. PR and review.** Open the PR; Codex loop.

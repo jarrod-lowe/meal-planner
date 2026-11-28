@@ -29,7 +29,7 @@ test('keeps the session across a reload', async ({ page }) => {
 });
 
 test('signing out returns to /login and ends the session', async ({ page }) => {
-  await page.getByRole('button', { name: en.home.signOut }).click();
+  await page.getByRole('button', { name: en.appNav.signOut }).click();
 
   await expect(page).toHaveURL(/^[^?]*\/login(\?|$)/);
   await expect(heading(page, en.login.signIn.heading)).toBeVisible();

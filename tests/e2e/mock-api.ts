@@ -1,7 +1,7 @@
-// An in-memory stand-in for the holidays and users API (DESIGN §5), served
-// through Playwright route interception. It keeps versions, membership and the
-// last-member rule like the Lambda does, and can be told to fail a request
-// with a version conflict.
+// An in-memory stand-in for the holidays, users and catalogue API (DESIGN §5),
+// served through Playwright route interception. It keeps versions, membership,
+// the last-member rule and soft deletes like the Lambdas do, and can be told to
+// fail a request with a version conflict.
 import type { Page, Route } from '@playwright/test';
 import type { components } from '../../src/lib/api/types.js';
 
@@ -10,6 +10,15 @@ type Holiday = Schemas['Holiday'];
 type Attendee = Schemas['Attendee'];
 type Member = Schemas['Member'];
 type User = Schemas['User'];
+type Recipe = Schemas['Recipe'];
+type Ingredient = Schemas['Ingredient'];
+
+export interface SeedCatalogue {
+  readonly recipes?: readonly (Omit<Recipe, 'version' | 'updatedAt' | 'updatedBy'> &
+    Partial<Recipe>)[];
+  readonly ingredients?: readonly (Omit<Ingredient, 'version' | 'updatedAt' | 'updatedBy'> &
+    Partial<Ingredient>)[];
+}
 
 interface StoredHoliday {
   holiday: Holiday;
@@ -48,6 +57,11 @@ const fail = (route: Route, status: number, code: string, extra: object = {}) =>
 export class MockApi {
   readonly holidays = new Map<string, StoredHoliday>();
   users: User[] = [];
+  /** The shared catalogue, hidden items included. */
+  readonly catalogue = {
+    recipes: new Map<string, Recipe>(),
+    ingredients: new Map<string, Ingredient>()
+  };
   /** Every request the app made, as `METHOD /path` (without `/api`). */
   readonly requests: string[] = [];
   #conflicts: ForcedConflict[] = [];
@@ -59,6 +73,16 @@ export class MockApi {
       attendees: new Map(attendees.map((a) => [a.id, { version: 1, ...stamp, ...a }])),
       members: new Map(members.map((sub) => [sub, { userSub: sub, version: 1, ...stamp }]))
     });
+  }
+
+  /** Adds catalogue items, at version 1. */
+  seedCatalogue({ recipes = [], ingredients = [] }: SeedCatalogue) {
+    for (const recipe of recipes) {
+      this.catalogue.recipes.set(recipe.id, { version: 1, ...stamp, ...recipe });
+    }
+    for (const ingredient of ingredients) {
+      this.catalogue.ingredients.set(ingredient.id, { version: 1, ...stamp, ...ingredient });
+    }
   }
 
   /** The next `method path` request gets `409 version-conflict` with `current`. */
@@ -105,6 +129,7 @@ export class MockApi {
     const parts = path.split('/').filter(Boolean);
 
     if (method === 'GET' && path === '/users') return json(route, 200, { users: this.users });
+    if (parts[0] === 'catalogue') return this.#catalogue(route, method, parts, body, sub);
     if (parts[0] !== 'holidays') return fail(route, 404, 'not-found');
     if (parts.length === 1 && method === 'GET') {
       const mine = [...this.holidays.values()].filter((h) => h.members.has(sub));
@@ -198,6 +223,41 @@ export class MockApi {
       }
     }
 
+    return fail(route, 400, 'validation');
+  }
+
+  /** `GET /catalogue`, `PUT /catalogue/{kind}/{id}` and the soft `DELETE` (PHASE_3 "Decisions"). */
+  #catalogue(route: Route, method: string, parts: string[], body: unknown, sub: string) {
+    const now = { updatedAt: new Date().toISOString(), updatedBy: sub };
+    if (parts.length === 1 && method === 'GET') {
+      return json(route, 200, {
+        recipes: [...this.catalogue.recipes.values()],
+        ingredients: [...this.catalogue.ingredients.values()]
+      });
+    }
+    const [, kind, id = ''] = parts;
+    if (parts.length !== 3 || (kind !== 'recipes' && kind !== 'ingredients')) {
+      return fail(route, 404, 'not-found');
+    }
+    const items: Map<string, Recipe | Ingredient> = this.catalogue[kind];
+    const existing = items.get(id);
+    if (method === 'PUT') {
+      const { version, ...fields } = body as Schemas['RecipeInput'] | Schemas['IngredientInput'];
+      if (version === 0 && existing) return fail(route, 409, 'already-exists');
+      if (version !== (existing?.version ?? 0)) {
+        return fail(route, 409, 'version-conflict', { current: existing ?? null });
+      }
+      const item: Recipe | Ingredient = { ...fields, id, version: version + 1, ...now };
+      items.set(id, item);
+      return json(route, 200, item);
+    }
+    if (method === 'DELETE') {
+      if (!existing) return fail(route, 404, 'not-found');
+      if (!existing.deleted) {
+        items.set(id, { ...existing, deleted: true, version: existing.version + 1, ...now });
+      }
+      return route.fulfill({ status: 204 });
+    }
     return fail(route, 400, 'validation');
   }
 }

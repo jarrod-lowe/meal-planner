@@ -104,7 +104,7 @@ DESIGN.md in the same PR.
 | `make deploy-lambdas ENV=`                        | Build the Lambda zips and update an environment's functions (deploy-test and the prod deploy run it) |
 | `make build-ui ENV=` / `push-ui ENV=`             | Build the UI with an environment's settings; upload it and invalidate CloudFront                     |
 | `make create-user ENV= EMAIL= NAME=`              | Admin-create a Cognito user; the human runs it                                                       |
-| `make seed-test EMAIL=`                           | Write a sample holiday to test, with that user as its member; the agent runs it                      |
+| `make seed-test EMAIL=`                           | Write a sample holiday with that user as its member, and the sample catalogue; the agent runs it     |
 | `make format` / `make validate`                   | Formatting; format checks and Terraform validation                                                   |
 | `make lock`                                       | Record provider hashes in the Terraform lock files after a provider change                           |
 | `make setup-state` / `setup-aws` / `setup-github` | One-off bootstrap; the human runs these                                                              |
