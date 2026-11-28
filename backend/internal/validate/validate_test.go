@@ -284,3 +284,127 @@ func TestRecipeInputMessages(t *testing.T) {
 		t.Errorf("error = %v, want it to name lines[1].quantity", err)
 	}
 }
+
+func TestLocalDateTime(t *testing.T) {
+	tests := []struct {
+		in      string
+		wantErr bool
+	}{
+		{in: "2026-12-25T18:00"},
+		{in: "2028-02-29T00:00"},
+		{in: "2026-12-31T23:59"},
+		{in: "2026-02-30T10:00", wantErr: true},
+		{in: "2026-12-25T24:00", wantErr: true},
+		{in: "2026-12-25T12:60", wantErr: true},
+		{in: "2026-13-01T12:00", wantErr: true},
+		{in: "2026-12-25", wantErr: true},
+		{in: "2026-12-25T18:00:00", wantErr: true},
+		{in: "2026-12-25 18:00", wantErr: true},
+		{in: "2026-12-25T8:00", wantErr: true},
+		{in: "2026-12-25T18:00Z", wantErr: true},
+		{in: "", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.in, func(t *testing.T) {
+			check(t, LocalDateTime("at", tt.in), tt.wantErr)
+		})
+	}
+}
+
+func TestMealSlot(t *testing.T) {
+	for _, s := range model.MealSlots {
+		check(t, MealSlot("slot", s), false)
+	}
+	for _, s := range []model.MealSlot{"", "Dinner", "supper"} {
+		check(t, MealSlot("slot", s), true)
+	}
+}
+
+func TestMealInput(t *testing.T) {
+	const (
+		att1 = "01936b2e-7f1a-7c3d-8e4f-00000000a001"
+		att2 = "01936b2e-7f1a-7c3d-8e4f-00000000a002"
+		mt1  = "01936b2e-7f1a-7c3d-8e4f-00000000b001"
+		mt2  = "01936b2e-7f1a-7c3d-8e4f-00000000b002"
+		rec  = "01936b2e-7f1a-7c3d-8e4f-00000000c001"
+	)
+	ptr := func(s string) *string { return &s }
+	good := func() model.MealInput {
+		return model.MealInput{Name: "1 Jan Dinner", Slot: model.MealSlotDinner, RecipeID: ptr(rec),
+			Mealtimes: []model.Mealtime{
+				{ID: mt1, At: "2027-01-01T18:00", AttendeeIDs: []string{att1, att2}},
+				{ID: mt2, At: "2027-01-02T18:00", AttendeeIDs: []string{att1}},
+			}}
+	}
+	mealtimes := func(n int) []model.Mealtime {
+		out := make([]model.Mealtime, n)
+		for i := range out {
+			out[i] = model.Mealtime{ID: fmt.Sprintf("01936b2e-7f1a-7c3d-8e4f-%012x", i+1), At: "2027-01-01T18:00", AttendeeIDs: []string{}}
+		}
+		return out
+	}
+	attendees := func(n int) []string {
+		out := make([]string, n)
+		for i := range out {
+			out[i] = fmt.Sprintf("01936b2e-7f1a-7c3d-8e4f-%012x", i+1)
+		}
+		return out
+	}
+	tests := []struct {
+		name    string
+		mutate  func(*model.MealInput)
+		wantErr bool
+	}{
+		{name: "valid", mutate: func(*model.MealInput) {}},
+		{name: "at a version", mutate: func(in *model.MealInput) { in.Version = 3 }},
+		{name: "null recipe", mutate: func(in *model.MealInput) { in.RecipeID = nil }},
+		{name: "bad recipe ID", mutate: func(in *model.MealInput) { in.RecipeID = ptr("pancakes") }, wantErr: true},
+		{name: "empty recipe ID", mutate: func(in *model.MealInput) { in.RecipeID = ptr("") }, wantErr: true},
+		{name: "100-character name", mutate: func(in *model.MealInput) { in.Name = strings.Repeat("a", 100) }},
+		{name: "101-character name", mutate: func(in *model.MealInput) { in.Name = strings.Repeat("a", 101) }, wantErr: true},
+		{name: "empty name", mutate: func(in *model.MealInput) { in.Name = "" }, wantErr: true},
+		{name: "blank name", mutate: func(in *model.MealInput) { in.Name = " " }, wantErr: true},
+		{name: "unknown slot", mutate: func(in *model.MealInput) { in.Slot = "brunch" }, wantErr: true},
+		{name: "empty slot", mutate: func(in *model.MealInput) { in.Slot = "" }, wantErr: true},
+		{name: "0 mealtimes", mutate: func(in *model.MealInput) { in.Mealtimes = []model.Mealtime{} }, wantErr: true},
+		{name: "nil mealtimes", mutate: func(in *model.MealInput) { in.Mealtimes = nil }, wantErr: true},
+		{name: "1 mealtime", mutate: func(in *model.MealInput) { in.Mealtimes = mealtimes(1) }},
+		{name: "100 mealtimes", mutate: func(in *model.MealInput) { in.Mealtimes = mealtimes(100) }},
+		{name: "101 mealtimes", mutate: func(in *model.MealInput) { in.Mealtimes = mealtimes(101) }, wantErr: true},
+		{name: "duplicate mealtime ID", mutate: func(in *model.MealInput) { in.Mealtimes[1].ID = mt1 }, wantErr: true},
+		{name: "bad mealtime ID", mutate: func(in *model.MealInput) { in.Mealtimes[0].ID = "t1" }, wantErr: true},
+		{name: "impossible date", mutate: func(in *model.MealInput) { in.Mealtimes[0].At = "2026-02-30T10:00" }, wantErr: true},
+		{name: "hour 24", mutate: func(in *model.MealInput) { in.Mealtimes[1].At = "2027-01-01T24:00" }, wantErr: true},
+		{name: "date without time", mutate: func(in *model.MealInput) { in.Mealtimes[0].At = "2027-01-01" }, wantErr: true},
+		{name: "time with seconds", mutate: func(in *model.MealInput) { in.Mealtimes[0].At = "2027-01-01T18:00:00" }, wantErr: true},
+		{name: "no attendees", mutate: func(in *model.MealInput) { in.Mealtimes[0].AttendeeIDs = []string{} }},
+		{name: "nil attendees", mutate: func(in *model.MealInput) { in.Mealtimes[0].AttendeeIDs = nil }},
+		{name: "100 attendees", mutate: func(in *model.MealInput) { in.Mealtimes[0].AttendeeIDs = attendees(100) }},
+		{name: "101 attendees", mutate: func(in *model.MealInput) { in.Mealtimes[0].AttendeeIDs = attendees(101) }, wantErr: true},
+		{name: "duplicate attendee", mutate: func(in *model.MealInput) { in.Mealtimes[0].AttendeeIDs = []string{att1, att1} }, wantErr: true},
+		{name: "same attendee in two mealtimes", mutate: func(in *model.MealInput) { in.Mealtimes[1].AttendeeIDs = []string{att1, att2} }},
+		{name: "bad attendee ID", mutate: func(in *model.MealInput) { in.Mealtimes[1].AttendeeIDs = []string{"sam"} }, wantErr: true},
+		{name: "negative version", mutate: func(in *model.MealInput) { in.Version = -1 }, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			in := good()
+			tt.mutate(&in)
+			check(t, MealInput(in), tt.wantErr)
+		})
+	}
+}
+
+func TestMealInputMessages(t *testing.T) {
+	const id = "01936b2e-7f1a-7c3d-8e4f-00000000b001"
+	in := model.MealInput{Name: "D", Slot: model.MealSlotDinner, Mealtimes: []model.Mealtime{
+		{ID: id, At: "2027-01-01T18:00"}, {ID: id, At: "2027-01-01T18:00"},
+	}}
+	if err := MealInput(in); err == nil || !strings.Contains(err.Error(), "mealtimes[1]") {
+		t.Errorf("error = %v, want it to name mealtimes[1]", err)
+	}
+	in.Mealtimes = []model.Mealtime{{ID: id, At: "2027-01-01T18:00", AttendeeIDs: []string{id, "x"}}}
+	if err := MealInput(in); err == nil || !strings.Contains(err.Error(), "mealtimes[0].attendeeIds[1]") {
+		t.Errorf("error = %v, want it to name mealtimes[0].attendeeIds[1]", err)
+	}
+}
