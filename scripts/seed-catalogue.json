@@ -1,0 +1,155 @@
+{
+  "ingredients": [
+    {
+      "id": "019ac9a0-5c00-7a00-8000-000000000001",
+      "name": "Spaghetti",
+      "unit": "g",
+      "shopSection": "pantry"
+    },
+    {
+      "id": "019ac9a0-5c00-7a00-8000-000000000002",
+      "name": "Beef mince",
+      "unit": "g",
+      "shopSection": "meat-fish"
+    },
+    {
+      "id": "019ac9a0-5c00-7a00-8000-000000000003",
+      "name": "Onion",
+      "unit": "each",
+      "shopSection": "produce"
+    },
+    {
+      "id": "019ac9a0-5c00-7a00-8000-000000000004",
+      "name": "Garlic",
+      "unit": "clove",
+      "shopSection": "produce"
+    },
+    {
+      "id": "019ac9a0-5c00-7a00-8000-000000000005",
+      "name": "Chopped tomatoes",
+      "unit": "can",
+      "shopSection": "pantry"
+    },
+    {
+      "id": "019ac9a0-5c00-7a00-8000-000000000006",
+      "name": "Parmesan",
+      "unit": "g",
+      "shopSection": "dairy"
+    },
+    {
+      "id": "019ac9a0-5c00-7a00-8000-000000000007",
+      "name": "Chicken breast",
+      "unit": "g",
+      "shopSection": "meat-fish"
+    },
+    {
+      "id": "019ac9a0-5c00-7a00-8000-000000000008",
+      "name": "Broccoli",
+      "unit": "each",
+      "shopSection": "produce"
+    },
+    {
+      "id": "019ac9a0-5c00-7a00-8000-000000000009",
+      "name": "Soy sauce",
+      "unit": "ml",
+      "shopSection": "pantry"
+    },
+    {
+      "id": "019ac9a0-5c00-7a00-8000-00000000000a",
+      "name": "Rice",
+      "unit": "g",
+      "shopSection": "pantry"
+    },
+    {
+      "id": "019ac9a0-5c00-7a00-8000-00000000000b",
+      "name": "Plain flour",
+      "unit": "g",
+      "shopSection": "pantry"
+    },
+    {
+      "id": "019ac9a0-5c00-7a00-8000-00000000000c",
+      "name": "Milk",
+      "unit": "ml",
+      "shopSection": "dairy"
+    },
+    {
+      "id": "019ac9a0-5c00-7a00-8000-00000000000d",
+      "name": "Eggs",
+      "unit": "each",
+      "shopSection": "dairy"
+    },
+    {
+      "id": "019ac9a0-5c00-7a00-8000-00000000000e",
+      "name": "Butter",
+      "unit": "g",
+      "shopSection": "dairy"
+    },
+    {
+      "id": "019ac9a0-5c00-7a00-8000-00000000000f",
+      "name": "Bacon",
+      "unit": "g",
+      "shopSection": "meat-fish"
+    },
+    {
+      "id": "019ac9a0-5c00-7a00-8000-000000000010",
+      "name": "Sourdough bread",
+      "unit": "slice",
+      "shopSection": "bakery"
+    }
+  ],
+  "recipes": [
+    {
+      "id": "019ac9a0-5c00-7b00-8000-000000000001",
+      "name": "Spaghetti bolognese",
+      "servings": 4,
+      "lines": [
+        { "ingredient": "Spaghetti", "quantity": 400 },
+        { "ingredient": "Beef mince", "quantity": 500 },
+        { "ingredient": "Onion", "quantity": 1 },
+        { "ingredient": "Garlic", "quantity": 2 },
+        { "ingredient": "Chopped tomatoes", "quantity": 2 },
+        { "ingredient": "Parmesan", "quantity": 50 }
+      ],
+      "notes": "Soften the chopped onion and garlic, then brown the mince. Add the tomatoes and simmer for 30 minutes. Cook the spaghetti, toss with the sauce and top with grated parmesan."
+    },
+    {
+      "id": "019ac9a0-5c00-7b00-8000-000000000002",
+      "name": "Chicken stir-fry",
+      "servings": 4,
+      "lines": [
+        { "ingredient": "Chicken breast", "quantity": 600 },
+        { "ingredient": "Broccoli", "quantity": 1 },
+        { "ingredient": "Onion", "quantity": 1 },
+        { "ingredient": "Garlic", "quantity": 3 },
+        { "ingredient": "Soy sauce", "quantity": 60 },
+        { "ingredient": "Rice", "quantity": 300 }
+      ],
+      "notes": "Start the rice. Slice the chicken thinly and stir-fry in a hot pan until golden. Add the onion, garlic and broccoli florets and cook for 3 minutes, then the soy sauce. Serve on the rice."
+    },
+    {
+      "id": "019ac9a0-5c00-7b00-8000-000000000003",
+      "name": "Pancakes",
+      "servings": 4,
+      "lines": [
+        { "ingredient": "Plain flour", "quantity": 250 },
+        { "ingredient": "Milk", "quantity": 500 },
+        { "ingredient": "Eggs", "quantity": 2 },
+        { "ingredient": "Butter", "quantity": 30 }
+      ],
+      "notes": "Whisk the flour, milk and eggs into a smooth batter and rest it for 10 minutes. Cook ladlefuls in a buttered pan over medium heat, turning when bubbles appear."
+    },
+    {
+      "id": "019ac9a0-5c00-7b00-8000-000000000004",
+      "name": "Big breakfast",
+      "servings": 6,
+      "lines": [
+        { "ingredient": "Bacon", "quantity": 500 },
+        { "ingredient": "Eggs", "quantity": 12 },
+        { "ingredient": "Sourdough bread", "quantity": 12 },
+        { "ingredient": "Butter", "quantity": 60 },
+        { "ingredient": "Chopped tomatoes", "quantity": 1 }
+      ],
+      "notes": "Fry the bacon until crisp and keep it warm. Warm the tomatoes in a small pan. Fry or scramble the eggs in butter, toast and butter the bread, and serve everything together."
+    }
+  ]
+}

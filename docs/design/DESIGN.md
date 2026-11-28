@@ -884,7 +884,7 @@ Make targets follow dnd-planner. Terraform is only ever run through Make.
 | `make deploy-lambdas ENV=`                        | Build the Lambda zips and update the environment's functions (names from its Terraform outputs) |
 | `make build-ui ENV=` / `make push-ui ENV=`        | UI build with an environment's settings; upload and invalidation                                |
 | `make create-user ENV= EMAIL= NAME=`              | Admin-create a Cognito user                                                                     |
-| `make seed-test EMAIL=`                           | Write a sample holiday to test, with that user as its member and four attendees                 |
+| `make seed-test EMAIL=`                           | Write a sample holiday (that user as member, four attendees) and the sample catalogue           |
 
 ### GitHub Actions
 

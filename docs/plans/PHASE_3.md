@@ -94,16 +94,16 @@ picker), §10 (component tests); ARCHITECTURE "Helpfulness".
 
 ## PR 3.2: Catalogue UI
 
-- [ ] **8. Shared write queue.** Extract the queue from
+- [x] **8. Shared write queue.** Extract the queue from
       `holiday.svelte.ts` into `src/lib/stores/mutation-queue.ts`.
   - Tests first: the queue's own tests (moved and generalised); the holiday
     store's tests pass unchanged.
-- [ ] **9. Catalogue store.** `src/lib/stores/catalogue.svelte.ts`: load once
+- [x] **9. Catalogue store.** `src/lib/stores/catalogue.svelte.ts`: load once
       per session, refetch on focus at most every 30 s and on **Refresh**,
       clear on sign-out, `mutate()` for both kinds, plus hide and show again.
   - Tests first: load, throttle, create, update, hide, show again, a
     conflict, and sign-out cancellation.
-- [ ] **10. Search and data.** `src/lib/catalogue/search.ts` (Fuse.js, same
+- [x] **10. Search and data.** `src/lib/catalogue/search.ts` (Fuse.js, same
       names together, hidden items left out unless asked) and
       `data/common-ingredients.json` with its validation test.
   - Tests first: typo matching (a misspelt "tomato"), grouping by name, hidden items,
@@ -132,7 +132,7 @@ picker), §10 (component tests); ARCHITECTURE "Helpfulness".
       *Create new recipe* option, for phase 4.
   - Tests first: component tests for matching, keyboard selection, and the
     create option.
-- [ ] **16. Seed.** `make seed-test` adds the catalogue items, per the
+- [x] **16. Seed.** `make seed-test` adds the catalogue items, per the
       decision above.
 - [ ] **17. E2E.** With the mocked API: create an ingredient from a
       suggestion, build a recipe with the picker (keyboard only), hide it
