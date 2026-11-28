@@ -132,17 +132,17 @@ references: DESIGN §1, §2.1 (`MEAL_SLOTS`, `SLOT_DEFAULT_TIMES`), §2.2
   - Tests first: name suggestion until edited, the slot's default time,
     *Everyone* / *No one*, the preview scaling as people are ticked, the
     save payload, and delete.
-- [ ] **12. Create a recipe from the meal.** The `return` flow above.
+- [x] **12. Create a recipe from the meal.** The `return` flow above.
   - Tests first: the draft survives the round trip and the new recipe is
     selected; an invalid `return` path is ignored (only paths inside the
     app).
-- [ ] **13. Overview warnings.** Each warning with a link to fix it: the meal
+- [x] **13. Overview warnings.** Each warning with a link to fix it: the meal
       editor for meal warnings, the recipe editor for a missing ingredient.
   - Tests first: component tests for each warning's text and link.
-- [ ] **14. Deleting an attendee who eats meals.** The People flow above.
+- [x] **14. Deleting an attendee who eats meals.** The People flow above.
   - Tests first: the list of affected meals, one `PUT` per meal, then the
     delete; a failed `PUT` stops before the delete.
-- [ ] **15. E2E.** With the mocked API: plan a dinner for 6 using a recipe for
+- [x] **15. E2E.** With the mocked API: plan a dinner for 6 using a recipe for
       4 and check the preview shows ×1.5; add Dinner B beside it; a meal
       without a recipe shows on Overview with a working link; create a
       recipe from the meal editor and return. Axe on the planner, the
