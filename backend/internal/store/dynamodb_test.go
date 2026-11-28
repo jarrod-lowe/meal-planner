@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -406,6 +407,9 @@ func TestLoadHoliday(t *testing.T) {
 	if fmt.Sprint(subs) != "[creator friend]" {
 		t.Errorf("members = %v, want [creator friend]", subs)
 	}
+	if len(facts.Meals) != 0 {
+		t.Errorf("meals = %+v, want none", facts.Meals)
+	}
 	if facts.Meals == nil || facts.Trips == nil || facts.StockChanges == nil {
 		t.Errorf("empty kinds should be empty slices: %+v", facts)
 	}
@@ -567,5 +571,53 @@ func TestListHolidays(t *testing.T) {
 	none, err := s.ListHolidays(ctx, "nobody-"+newID())
 	if err != nil || len(none) != 0 {
 		t.Errorf("ListHolidays() for a user with no holidays = %v, %v", none, err)
+	}
+}
+
+func TestLoadHolidayMeals(t *testing.T) {
+	ctx := context.Background()
+	s := newTestStore(t)
+	h := mustCreateHoliday(t, s, "creator")
+	att := newAttendee(h.ID, "Ann", 0)
+	mustPut(t, s, att, "creator")
+	recipeID := newID()
+	withRecipe := &model.Meal{ID: newID(), Name: "Dinner", Slot: model.MealSlotDinner, RecipeID: &recipeID,
+		Mealtimes: []model.Mealtime{
+			{ID: newID(), At: "2026-12-24T18:00", AttendeeIDs: []string{att.ID}},
+			{ID: newID(), At: "2026-12-25T18:00", AttendeeIDs: []string{}},
+		}}
+	withRecipe.SetKeys(h.ID)
+	noRecipe := &model.Meal{ID: newID(), Name: "Snacks", Slot: model.MealSlotSnacks,
+		Mealtimes: []model.Mealtime{{ID: newID(), At: "2026-12-24T15:00", AttendeeIDs: []string{}}}}
+	noRecipe.SetKeys(h.ID)
+	mustPut(t, s, withRecipe, "creator")
+	mustPut(t, s, noRecipe, "creator")
+
+	facts, err := s.LoadHoliday(ctx, h.ID)
+	if err != nil {
+		t.Fatalf("LoadHoliday() error = %v", err)
+	}
+	if len(facts.Meals) != 2 || len(facts.Attendees) != 1 {
+		t.Fatalf("meals = %+v, attendees = %+v", facts.Meals, facts.Attendees)
+	}
+	byID := map[string]model.Meal{}
+	for _, m := range facts.Meals {
+		byID[m.ID] = m
+	}
+	got := byID[withRecipe.ID]
+	if got.RecipeID == nil || *got.RecipeID != recipeID || got.Version != 1 || got.Slot != model.MealSlotDinner ||
+		len(got.Mealtimes) != 2 || got.Mealtimes[0].AttendeeIDs[0] != att.ID || got.Mealtimes[1].At != "2026-12-25T18:00" {
+		t.Errorf("meal with recipe = %+v", got)
+	}
+	got = byID[noRecipe.ID]
+	if got.RecipeID != nil || got.Name != "Snacks" || len(got.Mealtimes) != 1 {
+		t.Errorf("meal without recipe = %+v", got)
+	}
+	b, err := json.Marshal(facts)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if !strings.Contains(string(b), `"recipeId":null`) || strings.Contains(string(b), `"attendeeIds":null`) {
+		t.Errorf("JSON = %s", b)
 	}
 }

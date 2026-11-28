@@ -27,9 +27,18 @@ var (
 	errNoCaller     = errors.New("no caller")
 )
 
-// Kinds accepted by DELETE /holidays/{holidayId}/{kind}/{id}. Later phases
-// add meals, trips and stock-changes.
-const kindAttendees = "attendees"
+// Kinds accepted by DELETE /holidays/{holidayId}/{kind}/{id}, and the sort-key
+// prefix of each. Later phases add trips and stock-changes.
+var kindPrefixes = map[string]string{
+	"attendees": model.AttendeePrefix,
+	"meals":     model.MealPrefix,
+}
+
+// Static resources that DELETE may also arrive on, and the kind each means.
+var staticDeleteKinds = map[string]string{
+	"/holidays/{holidayId}/attendees/{id}": "attendees",
+	"/holidays/{holidayId}/meals/{id}":     "meals",
+}
 
 type handler struct {
 	store store.Store
@@ -61,6 +70,8 @@ func (h *handler) routes() map[string]route {
 		"DELETE /holidays/{holidayId}/members/{userSub}": h.deleteMember,
 		"PUT /holidays/{holidayId}/attendees/{id}":       h.putAttendee,
 		"DELETE /holidays/{holidayId}/attendees/{id}":    h.deleteItem,
+		"PUT /holidays/{holidayId}/meals/{id}":           h.putMeal,
+		"DELETE /holidays/{holidayId}/meals/{id}":        h.deleteItem,
 		"DELETE /holidays/{holidayId}/{kind}/{id}":       h.deleteItem,
 	}
 }
@@ -302,16 +313,49 @@ func (h *handler) putAttendee(ctx context.Context, c call) (httpx.Response, erro
 	return ok(attendee)
 }
 
+// putMeal serves PUT /holidays/{holidayId}/meals/{id}. Mealtimes are stored
+// sorted by `at`, then by ID so equal times have a fixed order.
+func (h *handler) putMeal(ctx context.Context, c call) (httpx.Response, error) {
+	holidayID, id := c.param("holidayId"), c.param("id")
+	var in model.MealInput
+	if err := first(validate.ID("holidayId", holidayID), validate.ID("id", id), decodeBody(c, &in)); err != nil {
+		return httpx.Response{}, err
+	}
+	if err := validate.MealInput(in); err != nil {
+		return httpx.Response{}, err
+	}
+	if err := h.requireMember(ctx, holidayID, c.caller.Sub); err != nil {
+		return httpx.Response{}, err
+	}
+	mealtimes := slices.Clone(in.Mealtimes)
+	for i := range mealtimes {
+		if mealtimes[i].AttendeeIDs == nil {
+			mealtimes[i].AttendeeIDs = []string{} // stored as an empty list, not NULL
+		}
+	}
+	slices.SortFunc(mealtimes, func(a, b model.Mealtime) int {
+		return cmp.Or(cmp.Compare(a.At, b.At), cmp.Compare(a.ID, b.ID))
+	})
+	meal := &model.Meal{ID: id, Name: in.Name, Slot: in.Slot, RecipeID: in.RecipeID, Mealtimes: mealtimes,
+		Versioned: model.Versioned{Version: in.Version}}
+	meal.SetKeys(holidayID)
+	if err := h.store.Put(ctx, meal, c.caller.Sub); err != nil {
+		return httpx.Response{}, err
+	}
+	return ok(meal)
+}
+
 // deleteItem serves DELETE /holidays/{holidayId}/{kind}/{id}. API Gateway
-// may also route an attendee delete to the attendee's own resource, which
-// has no {kind}.
+// may also route a delete to the item's own static resource, which has no
+// {kind}.
 func (h *handler) deleteItem(ctx context.Context, c call) (httpx.Response, error) {
 	holidayID, kind, id := c.param("holidayId"), c.param("kind"), c.param("id")
-	if c.req.Resource == "/holidays/{holidayId}/attendees/{id}" {
-		kind = kindAttendees
+	if k, ok := staticDeleteKinds[c.req.Resource]; ok {
+		kind = k
 	}
-	if kind != kindAttendees {
-		return httpx.Response{}, &validate.Error{Message: "kind must be attendees"}
+	prefix, ok := kindPrefixes[kind]
+	if !ok {
+		return httpx.Response{}, &validate.Error{Message: "kind must be attendees or meals"}
 	}
 	if err := first(validate.ID("holidayId", holidayID), validate.ID("id", id)); err != nil {
 		return httpx.Response{}, err
@@ -319,7 +363,7 @@ func (h *handler) deleteItem(ctx context.Context, c call) (httpx.Response, error
 	if err := h.requireMember(ctx, holidayID, c.caller.Sub); err != nil {
 		return httpx.Response{}, err
 	}
-	key := model.Key{PK: model.HolidayPK(holidayID), SK: model.AttendeePrefix + id}
+	key := model.Key{PK: model.HolidayPK(holidayID), SK: prefix + id}
 	if err := h.store.Delete(ctx, key); err != nil {
 		return httpx.Response{}, err
 	}

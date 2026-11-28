@@ -117,6 +117,10 @@ func (f *fakeStore) LoadHoliday(_ context.Context, id string) (model.HolidayFact
 			var a model.Attendee
 			f.get(key, &a)
 			facts.Attendees = append(facts.Attendees, a)
+		case strings.HasPrefix(key.SK, model.MealPrefix):
+			var m model.Meal
+			f.get(key, &m)
+			facts.Meals = append(facts.Meals, m)
 		}
 	}
 	if !found {
@@ -231,4 +235,19 @@ func fixedClock() func() time.Time {
 		t = t.Add(5 * time.Millisecond)
 		return t
 	}
+}
+
+func (f *fakeStore) addMeal(holidayID, id string, version int) {
+	m := model.Meal{ID: id, Name: "Dinner", Slot: model.MealSlotDinner,
+		Mealtimes: []model.Mealtime{{ID: "01936b2e-7f1a-7c3d-8e4f-0000000000f1", At: "2026-12-24T18:00", AttendeeIDs: []string{}}},
+		Versioned: model.Versioned{Version: version, UpdatedAt: fakeNow, UpdatedBy: "seed"}}
+	m.SetKeys(holidayID)
+	f.items[model.Key{PK: m.PK, SK: m.SK}], _ = attributevalue.MarshalMap(m)
+}
+
+// meal returns a stored meal.
+func (f *fakeStore) meal(holidayID, id string) (model.Meal, bool) {
+	var m model.Meal
+	ok := f.get(model.Key{PK: model.HolidayPK(holidayID), SK: model.MealPrefix + id}, &m)
+	return m, ok
 }
