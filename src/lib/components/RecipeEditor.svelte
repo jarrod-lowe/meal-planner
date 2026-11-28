@@ -27,12 +27,18 @@
     store = appCatalogue,
     recipeId,
     common = COMMON_INGREDIENTS,
+    name: startName = null,
+    back = null,
     oncreated
   }: {
     store?: CatalogueStore;
     /** The recipe to edit, or `new`. The route remounts the editor when it changes. */
     recipeId: string;
     common?: readonly CommonIngredient[];
+    /** A new recipe's name to start with. */
+    name?: string | null;
+    /** The meal editor this was opened from, to go back to in place of the recipe list. */
+    back?: string | null;
     /** A new recipe was saved under `id`. */
     oncreated?: (id: string) => void;
   } = $props();
@@ -62,7 +68,7 @@
           notes: recipe.notes,
           lines: recipe.lines.map((line) => ({ ...newLine(), ...line }))
         }
-      : { name: '', servings: 4, notes: '', lines: [newLine()] };
+      : { name: untrack(() => startName) ?? '', servings: 4, notes: '', lines: [newLine()] };
   /** What a draft would save, for telling whether it has edits. */
   const saveable = (from: RecipeDraft) => JSON.stringify(recipeFields(from, false));
 
@@ -256,7 +262,12 @@
 </svelte:head>
 
 <div class="editor">
-  <a class="back" href={resolve('/recipes')}>{t('recipe.back')}</a>
+  {#if back}
+    <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- an in-app path, checked by the route -->
+    <a class="back" href={back}>{t('recipe.backToMeal')}</a>
+  {:else}
+    <a class="back" href={resolve('/recipes')}>{t('recipe.back')}</a>
+  {/if}
 
   {#if !isNew && !existing}
     <h1>{t('recipe.notFound.heading')}</h1>

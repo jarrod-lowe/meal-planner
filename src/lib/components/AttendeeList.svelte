@@ -8,10 +8,12 @@
   import { maxNameLength, nameError, type NameError } from './names.js';
 
   type Attendee = Schemas['Attendee'];
+  type Meal = Schemas['Meal'];
 
   let { store = appHoliday }: { store?: HolidayStore } = $props();
 
   const attendees = $derived(store.facts?.attendees ?? []);
+  const meals = $derived(store.facts?.meals ?? []);
 
   let newName = $state('');
   let newError = $state<NameError | null>(null);
@@ -23,6 +25,27 @@
 
   let deleting = $state<Attendee | null>(null);
   let confirmOpen = $state(false);
+  /** Why the last delete stopped, or what it's doing now. */
+  let problem = $state<string | null>(null);
+  let progress = $state<string | null>(null);
+
+  /** The meals `attendeeId` eats at any of their mealtimes. */
+  const mealsOf = (attendeeId: string) =>
+    meals.filter((meal) =>
+      meal.mealtimes.some((mealtime) => mealtime.attendeeIds.includes(attendeeId))
+    );
+  const affected = $derived(deleting ? mealsOf(deleting.id) : []);
+
+  /** What `meal` saves as without `attendeeId` at any of its mealtimes. */
+  const without = (meal: Meal, attendeeId: string) => ({
+    name: meal.name,
+    slot: meal.slot,
+    recipeId: meal.recipeId,
+    mealtimes: meal.mealtimes.map((mealtime) => ({
+      ...mealtime,
+      attendeeIds: mealtime.attendeeIds.filter((id) => id !== attendeeId)
+    }))
+  });
 
   const renameButtonId = (id: string) => `attendee-rename-${id}`;
 
@@ -70,12 +93,39 @@
 
   function askDelete(attendee: Attendee) {
     deleting = attendee;
+    problem = null;
     confirmOpen = true;
   }
 
+  /**
+   * Takes the attendee off each of their meals, one `PUT` at a time at the
+   * version shown, and deletes them only once every meal has saved (DESIGN §7.4).
+   */
   async function confirmDelete() {
     const attendee = deleting;
     if (!attendee) return;
+    problem = null;
+    const theirs = mealsOf(attendee.id);
+    if (theirs.length > 0) progress = t('people.attendees.deletingMeals', { name: attendee.name });
+    try {
+      for (const meal of theirs) {
+        const result = await store.mutate({
+          kind: 'meals',
+          id: meal.id,
+          fields: without(meal, attendee.id),
+          expectedVersion: meal.version
+        });
+        if (result.outcome !== 'saved') {
+          problem = t('people.attendees.deleteMealsFailed', {
+            name: attendee.name,
+            meal: meal.name
+          });
+          return;
+        }
+      }
+    } finally {
+      progress = null;
+    }
     await store.mutate({ kind: 'attendees', id: attendee.id, remove: true, label: attendee.name });
   }
 
@@ -89,6 +139,11 @@
 <section aria-labelledby="attendees-heading">
   <h2 id="attendees-heading">{t('people.attendees.heading')}</h2>
   <p class="muted">{t('people.attendees.intro')}</p>
+  <!-- Always present, so screen readers announce progress as it changes. -->
+  <p role="status" class="muted status">{progress ?? ''}</p>
+  {#if problem}
+    <p role="alert" class="error">{problem}</p>
+  {/if}
 
   {#if attendees.length === 0}
     <p class="muted">{t('people.attendees.empty')}</p>
@@ -172,10 +227,23 @@
   <ConfirmDialog
     bind:open={confirmOpen}
     heading={t('people.attendees.deleteHeading', { name: deleting?.name ?? '' })}
-    message={t('people.attendees.deleteMessage', { name: deleting?.name ?? '' })}
+    message={t(
+      affected.length > 0
+        ? 'people.attendees.deleteMealsMessage'
+        : 'people.attendees.deleteMessage',
+      { name: deleting?.name ?? '' }
+    )}
     confirmLabel={t('people.attendees.deleteConfirm')}
     onconfirm={confirmDelete}
-  />
+  >
+    {#if affected.length > 0}
+      <ul class="meals">
+        {#each affected as meal (meal.id)}
+          <li>{meal.name}</li>
+        {/each}
+      </ul>
+    {/if}
+  </ConfirmDialog>
 </section>
 
 <style>
@@ -278,6 +346,26 @@
     background: var(--color-primary);
     border-color: var(--color-primary);
     font-weight: var(--font-weight-bold);
+  }
+
+  /* An empty live region takes no room in the column. */
+  .status:empty {
+    margin-block-start: calc(-1 * var(--space-3));
+  }
+
+  ul.meals {
+    margin: calc(-1 * var(--space-3)) 0 var(--space-6);
+    padding-inline-start: var(--space-6);
+    list-style: disc;
+    border: 0;
+    border-radius: 0;
+    background: none;
+  }
+
+  ul.meals li {
+    padding: 0;
+    border: 0;
+    overflow-wrap: anywhere;
   }
 
   .error {

@@ -66,7 +66,7 @@
 
   ul {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: var(--space-1);
     margin: 0;
     padding: 0;
@@ -74,7 +74,7 @@
   }
 
   li {
-    flex: 1 1 7rem;
+    flex: 1 1 0;
     min-inline-size: 0;
   }
 

@@ -67,7 +67,12 @@ export const en = {
       deleteLabel: 'Delete {name}',
       deleteHeading: 'Delete {name}?',
       deleteMessage: 'This removes {name} from the holiday. It can’t be undone.',
-      deleteConfirm: 'Delete attendee'
+      deleteConfirm: 'Delete attendee',
+      deleteMealsMessage:
+        '{name} is eating these meals. Deleting them takes them off each meal first. It can’t be undone.',
+      deleteMealsFailed:
+        'Couldn’t take {name} off {meal}, so {name} wasn’t deleted. Try again once the plan has caught up.',
+      deletingMeals: 'Taking {name} off their meals…'
     },
     members: {
       heading: 'Members',
@@ -95,7 +100,23 @@ export const en = {
     title: '{name} · Meal planner',
     dates: 'Dates',
     timeZone: 'Time zone',
-    placeholder: 'The next 48 hours, shortfalls and upcoming trips will show here.'
+    placeholder: 'The next 48 hours, shortfalls and upcoming trips will show here.',
+    warnings: {
+      heading: 'Warnings',
+      none: 'No warnings.',
+      unknownMeal: 'A meal',
+      unknownRecipe: 'A recipe',
+      mealWithoutRecipe: '{meal} has no recipe yet.',
+      mealtimeWithoutAttendees: 'No one is eating {meal} on {day}.',
+      missingRecipe: '{meal} uses a recipe that no longer exists.',
+      missingIngredient: '{recipe} uses an ingredient that no longer exists.',
+      chooseRecipe: 'Choose a recipe',
+      chooseRecipeLabel: 'Choose a recipe for {meal}',
+      chooseEaters: 'Choose who’s eating',
+      chooseEatersLabel: 'Choose who’s eating {meal}',
+      fixRecipe: 'Fix the recipe',
+      fixRecipeLabel: 'Fix the recipe {recipe}'
+    }
   },
   mutate: {
     refreshHoliday: 'Refresh holiday',
@@ -185,6 +206,7 @@ export const en = {
     newTitle: 'New recipe · Meal planner',
     newHeading: 'New recipe',
     back: 'All recipes',
+    backToMeal: 'Back to the meal',
     name: 'Name',
     servings: 'Servings',
     notes: 'Notes',

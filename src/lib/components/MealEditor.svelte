@@ -15,6 +15,7 @@
     type Recipe
   } from '#lib/stores/catalogue.svelte.js';
   import { holiday as appHoliday, type HolidayStore } from '#lib/stores/holiday.svelte.js';
+  import { mealDraftKey, mealDrafts, type MealDrafts } from '#lib/stores/meal-drafts.js';
   import { now as appNow } from '#lib/stores/now.svelte.js';
   import { engineCatalogue, engineFacts } from '#lib/stores/plan.svelte.js';
   import ConfirmDialog from './ConfirmDialog.svelte';
@@ -35,9 +36,11 @@
     store = appHoliday,
     catalogue = appCatalogue,
     now = appNow,
+    drafts = mealDrafts,
     mealId,
     date: queryDate = null,
     slot: querySlot = null,
+    recipe: returnedRecipeId = null,
     oncreated,
     ondeleted,
     oncreaterecipe
@@ -45,16 +48,23 @@
     store?: HolidayStore;
     catalogue?: CatalogueStore;
     now?: { readonly current: LocalDateTime | null };
+    /** Unsaved drafts kept while the user makes a recipe for the meal. */
+    drafts?: MealDrafts;
     /** The meal to edit, or `new`. The route remounts the editor when it changes. */
     mealId: string;
     /** A new meal's date and slot, from the query; ignored unless valid. */
     date?: string | null;
     slot?: string | null;
+    /** A recipe just made for this meal, to use in place of the draft's. */
+    recipe?: string | null;
     /** A new meal was saved under `id`. */
     oncreated?: (id: string) => void;
     /** The meal was deleted. */
     ondeleted?: () => void;
-    /** *Create new recipe* in the picker, with what was typed. Without it, there's no such option. */
+    /**
+     * *Create new recipe* in the picker, with what was typed. The draft is kept
+     * in `drafts` meanwhile. Without it, there's no such option.
+     */
     oncreaterecipe?: (query: string) => void;
   } = $props();
 
@@ -62,8 +72,14 @@
   // The editor is keyed by `mealId`, so these are fixed for its lifetime.
   // svelte-ignore state_referenced_locally
   const isNew = mealId === 'new';
+  /** Where this editor's draft is kept while the user makes a recipe for it. */
+  const draftKey = untrack(() =>
+    mealDraftKey(store.facts?.holiday.id ?? '', mealId, queryDate, querySlot)
+  );
+  /** The draft left here on the way to making a recipe, if any. */
+  const restored = untrack(() => drafts.take(draftKey));
   // svelte-ignore state_referenced_locally
-  const id = isNew ? uuidv7() : mealId;
+  const id = restored?.id ?? (isNew ? uuidv7() : mealId);
 
   const facts = $derived(store.facts);
   const attendees = $derived(facts?.attendees ?? []);
@@ -72,7 +88,7 @@
   const ingredientsById = $derived(new Map(catalogue.ingredients.map((item) => [item.id, item])));
 
   /** The first mealtime is the one this editor edits; its id stays the same across edits. */
-  const mealtimeId = untrack(() => existing?.mealtimes[0]?.id) ?? uuidv7();
+  const mealtimeId = restored?.mealtimeId ?? untrack(() => existing?.mealtimes[0]?.id) ?? uuidv7();
 
   function isSlot(value: string | null): value is MealSlot {
     return MEAL_SLOTS.some((slot) => slot === value);
@@ -108,17 +124,32 @@
     mealFields(from, { id: mealtimeId, rest: existing?.mealtimes.slice(1) ?? [] }, attendees);
   const saveable = (from: MealDraft) => JSON.stringify(fieldsOf(from));
 
-  /** The working copy, seeded from the stored meal (and again on Load latest). */
-  let draft = $state<MealDraft>(untrack(() => seed(existing)));
+  /**
+   * The working copy: the restored draft, or seeded from the stored meal (and
+   * again on Load latest). A recipe just made for the meal replaces its own.
+   */
+  const start = untrack(() => restored?.draft ?? seed(existing));
+  let draft = $state<MealDraft>(
+    untrack(() => {
+      const made = catalogue.recipes.find((candidate) => candidate.id === returnedRecipeId);
+      return made ? { ...start, recipeId: made.id } : { ...start };
+    })
+  );
   /** The name and time follow the date and slot until the user edits them. */
-  let nameEdited = $state(untrack(() => draft.name !== suggestName(draft.date, draft.slot)));
-  let timeEdited = $state(untrack(() => draft.time !== SLOT_DEFAULT_TIMES[draft.slot]));
+  let nameEdited = $state(
+    untrack(() => restored?.nameEdited ?? draft.name !== suggestName(draft.date, draft.slot))
+  );
+  let timeEdited = $state(
+    untrack(() => restored?.timeEdited ?? draft.time !== SLOT_DEFAULT_TIMES[draft.slot])
+  );
   /**
    * The stored version the draft is based on, and what it saved as then. A
    * save sends it as the expected version, so it can't overwrite a change
    * that someone else made since.
    */
-  let base = $state.raw(untrack(() => ({ version: existing?.version, fields: saveable(draft) })));
+  let base = $state.raw(
+    untrack(() => restored?.base ?? { version: existing?.version, fields: saveable(start) })
+  );
   /** This editor's own saves in flight: they change the version too. */
   let ownWrites = $state(0);
   const busy = $derived(ownWrites > 0);
@@ -224,6 +255,7 @@
       if (result.outcome === 'saved') {
         base = { version: existing?.version, fields: sent };
         saved = true;
+        drafts.clear(draftKey);
         if (isNew) oncreated?.(id);
       }
     } finally {
@@ -261,7 +293,21 @@
   function remove() {
     // Optimistic: the meal leaves the plan at once, and a failure brings it back with a toast.
     void store.mutate({ kind: 'meals', id, remove: true, label: existing?.name });
+    drafts.clear(draftKey);
     ondeleted?.();
+  }
+
+  /** Keeps the draft, as it is, for when the user comes back with a recipe. */
+  function createRecipe(query: string) {
+    drafts.put(draftKey, {
+      id,
+      mealtimeId,
+      draft: $state.snapshot(draft),
+      nameEdited,
+      timeEdited,
+      base
+    });
+    oncreaterecipe?.(query);
   }
 
   const recipe = $derived(draft.recipeId === null ? undefined : recipesById.get(draft.recipeId));
@@ -407,7 +453,7 @@
           store={catalogue}
           label={t('meal.findRecipe')}
           onselect={chooseRecipe}
-          oncreate={oncreaterecipe}
+          oncreate={oncreaterecipe ? createRecipe : undefined}
         />
       {/if}
     </section>

@@ -6,6 +6,7 @@ import type { Schemas } from '#lib/api/client.js';
 import { t } from '#lib/i18n/en.js';
 import { ingredient, loadedCatalogue, recipe, stored, uuidV7 } from '#lib/test/catalogue.js';
 import { apiError, facts, holidayId, loadedHoliday, meta } from '#lib/test/holiday.js';
+import { MealDrafts, mealDraftKey } from '#lib/stores/meal-drafts.js';
 import MealEditor from './MealEditor.svelte';
 
 const people = ['Ann', 'Bob', 'Cat', 'Dan', 'Eve', 'Fay'].map((name, n) => ({
@@ -44,6 +45,9 @@ interface Options {
   date?: string | null;
   slot?: string | null;
   meals?: Schemas['Meal'][];
+  drafts?: MealDrafts;
+  recipe?: string | null;
+  oncreaterecipe?: (query: string) => void;
 }
 
 async function setup(options: Options = {}) {
@@ -54,18 +58,38 @@ async function setup(options: Options = {}) {
   });
   const oncreated = vi.fn();
   const ondeleted = vi.fn();
-  render(MealEditor, {
-    store: holiday.store,
-    catalogue: catalogue.store,
-    now: { current: '2026-12-26T09:00' },
-    mealId: options.mealId ?? 'new',
-    date: options.date ?? null,
-    slot: options.slot ?? null,
-    oncreated,
-    ondeleted
-  });
+  const drafts = options.drafts ?? new MealDrafts();
+  const mount = (more: Pick<Options, 'recipe' | 'oncreaterecipe'> = options) =>
+    render(MealEditor, {
+      store: holiday.store,
+      catalogue: catalogue.store,
+      drafts,
+      now: { current: '2026-12-26T09:00' },
+      mealId: options.mealId ?? 'new',
+      date: options.date ?? null,
+      slot: options.slot ?? null,
+      recipe: more.recipe ?? null,
+      oncreated,
+      ondeleted,
+      oncreaterecipe: more.oncreaterecipe
+    });
+  let view = mount();
   const writes = () => holiday.requests.filter((r) => r.method !== 'GET');
-  return { ...holiday, oncreated, ondeleted, writes, user: userEvent.setup() };
+  /** Leaves the editor and comes back to it, as a trip to the recipe editor does. */
+  const remount = (more: Pick<Options, 'recipe' | 'oncreaterecipe'> = {}) => {
+    view.unmount();
+    view = mount(more);
+  };
+  return {
+    ...holiday,
+    catalogue: catalogue.store,
+    drafts,
+    oncreated,
+    ondeleted,
+    writes,
+    remount,
+    user: userEvent.setup()
+  };
 }
 
 const field = (label: string) => screen.getByLabelText<HTMLInputElement>(label);
@@ -362,5 +386,135 @@ describe('MealEditor', () => {
 
     expect(screen.getByRole('heading', { name: t('meal.notFound.heading') })).toBeTruthy();
     expect(screen.getByText(t('meal.notFound.message'))).toBeTruthy();
+  });
+});
+
+describe('MealEditor, creating a recipe on the way', () => {
+  const createOption = (query: string) =>
+    screen.getByRole('option', { name: t('recipePicker.create', { query }) });
+
+  async function createRecipe(user: ReturnType<typeof userEvent.setup>, query: string) {
+    await user.click(screen.getByRole('combobox', { name: t('meal.findRecipe') }));
+    await user.keyboard(query);
+    await user.click(createOption(query));
+  }
+
+  it('keeps a new meal’s draft while a recipe is made, then uses the new recipe', async () => {
+    const oncreaterecipe = vi.fn();
+    const env = await setup({ date: '2027-01-01', slot: 'dinner', oncreaterecipe });
+    const { user, drafts, reply, writes, oncreated } = env;
+    const put = vi.spyOn(drafts, 'put');
+    await user.clear(nameField());
+    await user.type(nameField(), 'Party');
+    await fireEvent.input(timeField(), { target: { value: '19:15' } });
+    await user.click(screen.getByLabelText('Bob'));
+
+    await createRecipe(user, 'Lasagne');
+
+    expect(oncreaterecipe).toHaveBeenCalledWith('Lasagne');
+    expect(put).toHaveBeenCalledOnce();
+    const [key, stash] = put.mock.calls[0] ?? [];
+    expect(key).toBe(mealDraftKey(holidayId, 'new', '2027-01-01', 'dinner'));
+
+    // Back from the recipe editor, with the recipe it made.
+    env.remount({ recipe: curry.id });
+
+    expect(nameField().value).toBe('Party');
+    expect(timeField().value).toBe('19:15');
+    expect(checked()).toEqual(['Ann', 'Cat', 'Dan', 'Eve', 'Fay']);
+    expect(screen.getByText('Curry')).toBeTruthy();
+    // The name and time are still the user's own.
+    await user.selectOptions(slotField(), 'lunch');
+    expect(nameField().value).toBe('Party');
+    expect(timeField().value).toBe('19:15');
+
+    reply('PUT', stored);
+    await user.click(button(t('meal.save')));
+    expect(writes()).toHaveLength(1);
+    expect(writes()[0]?.path).toBe(`/holidays/${holidayId}/meals/${stash?.id}`);
+    expect(writes()[0]?.body).toEqual({
+      name: 'Party',
+      slot: 'lunch',
+      recipeId: curry.id,
+      mealtimes: [
+        {
+          id: stash?.mealtimeId,
+          at: '2027-01-01T19:15',
+          attendeeIds: everyone.filter((person) => person !== everyone[1])
+        }
+      ],
+      version: 0
+    });
+    expect(oncreated).toHaveBeenCalledWith(stash?.id);
+    expect(drafts.take(key ?? '')).toBeUndefined();
+  });
+
+  it('keeps a saved meal’s draft and base version through the trip', async () => {
+    const env = await setup({ mealId, meals: [saved()], oncreaterecipe: vi.fn() });
+    const { user, reply, writes } = env;
+    await user.clear(nameField());
+    await user.type(nameField(), 'Mine');
+    await user.click(button(t('meal.changeLabel')));
+
+    await createRecipe(user, 'Pie');
+    env.remount({ recipe: curry.id });
+
+    expect(nameField().value).toBe('Mine');
+    expect(screen.getByText('Curry')).toBeTruthy();
+    reply('PUT', stored);
+    await user.click(button(t('meal.save')));
+    expect(writes()[0]?.body).toEqual({
+      name: 'Mine',
+      slot: 'lunch',
+      recipeId: curry.id,
+      mealtimes: [{ id: mealtimeId, at: '2026-12-27T13:00', attendeeIds: everyone.slice(0, 2) }],
+      version: 3
+    });
+  });
+
+  it('comes back with the draft intact when no recipe was made', async () => {
+    const env = await setup({ date: '2027-01-01', slot: 'dinner', oncreaterecipe: vi.fn() });
+    const { user } = env;
+    await user.click(screen.getByLabelText('Ann'));
+    await createRecipe(user, 'Stew');
+
+    env.remount();
+
+    expect(checked()).toEqual(['Bob', 'Cat', 'Dan', 'Eve', 'Fay']);
+    expect(screen.getByText(t('meal.noRecipe'))).toBeTruthy();
+  });
+
+  it('starts afresh after coming back once', async () => {
+    const env = await setup({ date: '2027-01-01', slot: 'dinner', oncreaterecipe: vi.fn() });
+    const { user } = env;
+    await user.click(screen.getByLabelText('Ann'));
+    await createRecipe(user, 'Stew');
+    env.remount();
+
+    env.remount();
+
+    expect(checked()).toEqual(['Ann', 'Bob', 'Cat', 'Dan', 'Eve', 'Fay']);
+  });
+
+  it('uses a returned recipe on a meal with no stashed draft', async () => {
+    await setup({ mealId, meals: [saved()], recipe: curry.id });
+
+    expect(screen.getByText('Curry')).toBeTruthy();
+  });
+
+  it('ignores a returned recipe that isn’t in the catalogue', async () => {
+    await setup({ mealId, meals: [saved()], recipe: '0190a0b0-0000-7000-8000-0000000000ff' });
+
+    expect(screen.getByText('Bolognese')).toBeTruthy();
+  });
+
+  it('offers no Create new recipe without somewhere to make one', async () => {
+    const { user } = await setup();
+    await user.click(screen.getByRole('combobox', { name: t('meal.findRecipe') }));
+    await user.keyboard('Stew');
+
+    expect(
+      screen.queryByRole('option', { name: t('recipePicker.create', { query: 'Stew' }) })
+    ).toBeNull();
   });
 });
