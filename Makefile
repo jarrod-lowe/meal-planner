@@ -1,6 +1,6 @@
 .PHONY: help install dev build lint check test test-unit test-go test-e2e format validate gofmt-check clean \
 	terraform-fmt-check terraform-version-check test-terraform trivy lock setup-state setup-aws setup-github \
-	env-local build-ui push-ui deploy-test create-user build-lambdas deploy-lambdas
+	env-local build-ui push-ui deploy-test create-user seed-test build-lambdas deploy-lambdas
 
 default: help
 
@@ -224,6 +224,26 @@ create-user: $(if $(and $(EMAIL),$(NAME)),$(env-output-json))
 		--user-attributes file://build/user-attributes.json \
 		--desired-delivery-mediums EMAIL
 	@rm -f build/user-attributes.json
+
+# Write a sample holiday to test: the user (by EMAIL) as its member, and four
+# attendees. The items are built by scripts/seed-test.jq and written in one
+# transaction, each only if it doesn't exist yet.
+seed-test: override ENV = test
+seed-test: $(if $(EMAIL),terraform/environment/test/output.json)
+	$(if $(EMAIL),,$(error Set EMAIL=<the user's email address>))
+	@mkdir -p build
+	aws cognito-idp admin-get-user \
+		--user-pool-id $(call tf-output,user_pool_id) \
+		--username "$(EMAIL)" > build/seed-test-user.json
+	od -An -N80 -tx1 /dev/urandom > build/seed-test-random.txt
+	jq -n --arg table "$(call tf-output,table_name)" \
+		--slurpfile user build/seed-test-user.json \
+		--rawfile random build/seed-test-random.txt \
+		-f scripts/seed-test.jq > build/seed-test.json
+	aws dynamodb transact-write-items --transact-items file://build/seed-test.json
+	@jq -r --arg site "$(call tf-output,site_url)" \
+		'.[0].Put.Item.id.S | "Seeded holiday \(.)\n\($$site)/holidays/\(.)"' build/seed-test.json
+	@rm -f build/seed-test-user.json build/seed-test-random.txt build/seed-test.json
 
 # ============================================
 # Lambdas
@@ -468,6 +488,7 @@ help:
 	@echo "  make build-ui ENV=   Build the UI with ENV's (test or prod) Cognito settings"
 	@echo "  make push-ui ENV=    Upload build/ to ENV's bucket and invalidate CloudFront"
 	@echo "  make create-user ENV= EMAIL= NAME=  Admin-create a user (Cognito emails a password)"
+	@echo "  make seed-test EMAIL=  Write a sample holiday to test, with that user as its member"
 	@echo ""
 	@echo "Frontend:"
 	@echo "  make dev             Start the Vite dev server; proxies /api to test once .env.local exists"

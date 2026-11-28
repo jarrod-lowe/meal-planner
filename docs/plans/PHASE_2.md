@@ -137,13 +137,13 @@ references: DESIGN §1 (conventions), §2.2 (stored facts), §4 (DynamoDB), §5
 
 ## PR 2.2: Holidays UI
 
-- [ ] **12. API client.** `src/lib/api/client.ts`: typed `get`/`put`/`del`
+- [x] **12. API client.** `src/lib/api/client.ts`: typed `get`/`put`/`del`
       from the generated types, adding the ID token, parsing the error shape
       into a typed `ApiError`. `src/lib/stores/users.svelte.ts`: `GET /users`
       cached for the session.
   - Tests first: headers, success parsing, each error code, network errors,
     and the users cache fetching once.
-- [ ] **13. Holiday store and `mutate()`.** `src/lib/stores/holiday.svelte.ts`
+- [x] **13. Holiday store and `mutate()`.** `src/lib/stores/holiday.svelte.ts`
       (load, refetch at most every 30 s on focus, refresh) and `mutate()` per
       §7.3, with a toast store and a toast component.
   - Tests first: optimistic apply, replace on success, version conflict
@@ -170,7 +170,7 @@ references: DESIGN §1 (conventions), §2.2 (stored facts), §4 (DynamoDB), §5
       route interception: create a holiday, add an attendee, add a member,
       and a version conflict showing the toast. Axe checks on each new page,
       desktop and Pixel 7.
-- [ ] **18. Seed.** `make seed-test EMAIL=`, per the decision above.
+- [x] **18. Seed.** `make seed-test EMAIL=`, per the decision above.
 - [ ] **19. Verify in test (human).** `make deploy-test`, then the "You can"
       list, using the second user for the refresh check.
 - [ ] **20. PR and review.** Open the PR; Codex loop.
