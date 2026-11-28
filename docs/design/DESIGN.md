@@ -429,8 +429,14 @@ holidays.
 | Create item                       | `PutItem` with `attribute_not_exists(PK)`; `version = 1`              |
 | Update item                       | `PutItem` with `version = :expected`; stored `version = expected + 1` |
 | Delete item                       | `DeleteItem` (unconditional; idempotent)                              |
-| Delete a holiday                  | Query the partition, then `BatchWriteItem` deletes in 25s             |
+| Delete a holiday                  | Query; `BatchWriteItem` in 25s, then `TransactWriteItems` (below)     |
 | Create a holiday                  | `TransactWriteItems`: `META` + the creator's `MEMBER`                 |
+
+Deleting a holiday removes everything except `META` and the `MEMBER`s first,
+with `BatchWriteItem` in 25s. Then one `TransactWriteItems` deletes the
+`MEMBER`s and `META` together, so a failure part way through leaves every
+membership, and a member can retry the delete. A transaction holds 100
+actions, so any `MEMBER`s past 99 are batch-deleted just before it.
 
 #### Sizing
 

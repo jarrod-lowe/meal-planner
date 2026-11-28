@@ -7,6 +7,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -424,6 +425,9 @@ func TestDeleteHoliday(t *testing.T) {
 		{name: "just created", attendees: 0, members: 0},
 		{name: "exactly one batch", attendees: 23, members: 0}, // + META + creator = 25
 		{name: "several batches", attendees: 60, members: 5},
+		{name: "a full transaction", attendees: 3, members: 98}, // + creator = 99, + META = 100
+		{name: "one member over a transaction", attendees: 3, members: 99},
+		{name: "more members than one transaction", attendees: 30, members: 120},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -457,6 +461,61 @@ func TestDeleteHoliday(t *testing.T) {
 				t.Errorf("second DeleteHoliday() error = %v", err)
 			}
 		})
+	}
+}
+
+// TestDeleteHolidayKeepsMembershipsUntilLast checks that a delete failing
+// part way through leaves META and every member, so a member can retry it.
+func TestDeleteHolidayKeepsMembershipsUntilLast(t *testing.T) {
+	ctx := context.Background()
+	s := newTestStore(t)
+	h := mustCreateHoliday(t, s, "creator")
+	for range 60 {
+		mustPut(t, s, newAttendee(h.ID, "Sam", 0), "creator")
+	}
+	const members = 5
+	for i := range members {
+		addMember(t, s, h.ID, "member-"+strconv.Itoa(i))
+	}
+
+	calls := 0
+	s.beforeBatchWrite = func(requests []types.WriteRequest) error {
+		for _, r := range requests {
+			sk := r.DeleteRequest.Key["SK"].(*types.AttributeValueMemberS).Value
+			if sk == model.MetaSK || strings.HasPrefix(sk, model.MemberPrefix) {
+				t.Errorf("batch write deletes %s before the final transaction", sk)
+			}
+		}
+		calls++
+		if calls == 3 { // the last batch: 60 attendees = 25 + 25 + 10
+			return errors.New("injected failure")
+		}
+		return nil
+	}
+	if err := s.DeleteHoliday(ctx, h.ID); err == nil {
+		t.Fatal("DeleteHoliday() error = nil, want the injected failure")
+	}
+	if _, err := s.GetHoliday(ctx, h.ID); err != nil {
+		t.Errorf("META after a failed delete: GetHoliday() error = %v", err)
+	}
+	n, err := s.CountMembers(ctx, h.ID)
+	if err != nil || n != members+1 {
+		t.Errorf("CountMembers() after a failed delete = %d, %v, want %d", n, err, members+1)
+	}
+	if ok, err := s.IsMember(ctx, h.ID, "creator"); err != nil || !ok {
+		t.Errorf("IsMember(creator) after a failed delete = %v, %v", ok, err)
+	}
+
+	s.beforeBatchWrite = nil
+	if err := s.DeleteHoliday(ctx, h.ID); err != nil {
+		t.Fatalf("retried DeleteHoliday() error = %v", err)
+	}
+	items, err := s.QueryPartition(ctx, model.HolidayPK(h.ID))
+	if err != nil {
+		t.Fatalf("QueryPartition() error = %v", err)
+	}
+	if len(items) != 0 {
+		t.Errorf("%d items left after the retried DeleteHoliday()", len(items))
 	}
 }
 

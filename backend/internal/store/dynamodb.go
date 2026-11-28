@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -20,8 +21,9 @@ import (
 
 // DynamoDB limits on batch sizes.
 const (
-	batchGetLimit   = 100
-	batchWriteLimit = 25
+	batchGetLimit      = 100
+	batchWriteLimit    = 25
+	transactWriteLimit = 100
 )
 
 // Retries of unprocessed batch keys and items.
@@ -42,6 +44,9 @@ type DynamoDB struct {
 	// pageSize, when set, limits each query page (tests use it to force
 	// pagination).
 	pageSize int32
+	// beforeBatchWrite, when set, runs before each batch write, and its
+	// error fails it (tests use it to inject failures).
+	beforeBatchWrite func([]types.WriteRequest) error
 }
 
 var _ Store = (*DynamoDB)(nil)
@@ -406,34 +411,66 @@ func (s *DynamoDB) batchGet(ctx context.Context, keys []map[string]types.Attribu
 	}
 }
 
-// DeleteHoliday implements Store. META is deleted last, so a failure part
-// way through leaves the holiday in place to delete again.
+// DeleteHoliday implements Store. Everything but META and the members goes
+// first, in batches; then the members and META go together in one
+// transaction, so a failure part way through leaves every membership in
+// place, and a member can delete again. A holiday with more members than one
+// transaction holds loses the surplus members in batches just before it.
 func (s *DynamoDB) DeleteHoliday(ctx context.Context, holidayID string) error {
 	pk := model.HolidayPK(holidayID)
 	in := partitionQuery(pk)
 	in.ProjectionExpression = aws.String("PK, SK")
-	var requests []types.WriteRequest
-	var meta *types.WriteRequest
+	var others, members []map[string]types.AttributeValue
+	var meta map[string]types.AttributeValue
 	err := s.query(ctx, in, func(out *dynamodb.QueryOutput) error {
 		for _, av := range out.Items {
-			r := types.WriteRequest{DeleteRequest: &types.DeleteRequest{Key: av}}
-			if sk, ok := av["SK"].(*types.AttributeValueMemberS); ok && sk.Value == model.MetaSK {
-				meta = &r
-				continue
+			sk, _ := av["SK"].(*types.AttributeValueMemberS)
+			switch {
+			case sk != nil && sk.Value == model.MetaSK:
+				meta = av
+			case sk != nil && strings.HasPrefix(sk.Value, model.MemberPrefix):
+				members = append(members, av)
+			default:
+				others = append(others, av)
 			}
-			requests = append(requests, r)
 		}
 		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("listing items of %s: %w", holidayID, err)
 	}
-	if meta != nil {
-		requests = append(requests, *meta)
+	// Leave room in the transaction for META.
+	keep := min(len(members), transactWriteLimit-1)
+	if err := s.batchDelete(ctx, append(others, members[keep:]...)); err != nil {
+		return fmt.Errorf("deleting items of %s: %w", holidayID, err)
 	}
-	for start := 0; start < len(requests); start += batchWriteLimit {
-		if err := s.batchWrite(ctx, requests[start:min(start+batchWriteLimit, len(requests))]); err != nil {
-			return fmt.Errorf("deleting items of %s: %w", holidayID, err)
+	final := members[:keep:keep]
+	if meta != nil {
+		final = append(final, meta)
+	}
+	if len(final) == 0 {
+		return nil
+	}
+	actions := make([]types.TransactWriteItem, len(final))
+	for i, key := range final {
+		actions[i] = types.TransactWriteItem{Delete: &types.Delete{TableName: aws.String(s.table), Key: key}}
+	}
+	if _, err := s.client.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{TransactItems: actions}); err != nil {
+		return fmt.Errorf("deleting members and META of %s: %w", holidayID, err)
+	}
+	return nil
+}
+
+// batchDelete deletes the keys in batches of 25.
+func (s *DynamoDB) batchDelete(ctx context.Context, keys []map[string]types.AttributeValue) error {
+	for start := 0; start < len(keys); start += batchWriteLimit {
+		batch := keys[start:min(start+batchWriteLimit, len(keys))]
+		requests := make([]types.WriteRequest, len(batch))
+		for i, key := range batch {
+			requests[i] = types.WriteRequest{DeleteRequest: &types.DeleteRequest{Key: key}}
+		}
+		if err := s.batchWrite(ctx, requests); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -442,6 +479,11 @@ func (s *DynamoDB) DeleteHoliday(ctx context.Context, holidayID string) error {
 // batchWrite writes up to 25 requests, retrying unprocessed items with
 // backoff.
 func (s *DynamoDB) batchWrite(ctx context.Context, requests []types.WriteRequest) error {
+	if s.beforeBatchWrite != nil {
+		if err := s.beforeBatchWrite(requests); err != nil {
+			return err
+		}
+	}
 	request := map[string][]types.WriteRequest{s.table: requests}
 	for attempt := 0; ; attempt++ {
 		out, err := s.client.BatchWriteItem(ctx, &dynamodb.BatchWriteItemInput{RequestItems: request})
