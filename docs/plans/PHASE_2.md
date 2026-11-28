@@ -65,16 +65,16 @@ references: DESIGN §1 (conventions), §2.2 (stored facts), §4 (DynamoDB), §5
 
 ## PR 2.1: Holidays API
 
-- [ ] **1. Model and validation.** `backend/internal/model` (holiday, member,
+- [x] **1. Model and validation.** `backend/internal/model` (holiday, member,
       attendee, `HolidayFacts`, the `*Input` types, with `json` and
       `dynamodbav` tags) and `backend/internal/validate` (names 1–100
       characters, dates, `startDate <= endDate`, time zone, UUIDs).
   - Tests first: table-driven `validate` tests, including each boundary;
     JSON round trips of each model type.
-- [ ] **2. Auth.** `backend/internal/auth`: the caller from the proxy event's
+- [x] **2. Auth.** `backend/internal/auth`: the caller from the proxy event's
       authorizer claims; an error when `sub` is missing.
   - Tests first: claims present, missing, and without `name`.
-- [ ] **3. Store.** `backend/internal/store`, behind an interface the
+- [x] **3. Store.** `backend/internal/store`, behind an interface the
       handlers use:
   - get, put with a version condition (`version: 0` creates with
     `attribute_not_exists`), delete, partition query (paginated), membership
@@ -88,7 +88,7 @@ references: DESIGN §1 (conventions), §2.2 (stored facts), §4 (DynamoDB), §5
   - Tests first, against DynamoDB Local: version conditions, create
     conflicts, membership, member count, holiday deletion with more than 25
     items, and listing more than 100 holidays.
-- [ ] **4. Holidays Lambda.** `backend/cmd/holidays`, routing on
+- [x] **4. Holidays Lambda.** `backend/cmd/holidays`, routing on
       `(httpMethod, resource)`:
   - `GET /holidays`, `PUT /holidays/{id}` (create in one transaction, or
     update `META`), `GET /holidays/{id}`, `DELETE /holidays/{id}`
@@ -99,22 +99,22 @@ references: DESIGN §1 (conventions), §2.2 (stored facts), §4 (DynamoDB), §5
   - Tests first, with a fake store: every route's success path, membership
     (`403` and `404`), each `409` code, `400` for each validation failure,
     and `500` without details.
-- [ ] **5. Users Lambda.** `backend/cmd/users`: `GET /users` via paginated
+- [x] **5. Users Lambda.** `backend/cmd/users`: `GET /users` via paginated
       `ListUsers`, returning `sub` and `name` (falling back to the email's
       local part), never emails.
   - Tests first, with a fake Cognito client: pagination, name fallback, and
     no email in the response.
-- [ ] **6. OpenAPI.** `terraform/module/meal-planner/openapi.yaml`: the routes
+- [x] **6. OpenAPI.** `terraform/module/meal-planner/openapi.yaml`: the routes
       above with the Cognito authoriser, request validators, schemas (§5.2
       limits and patterns), and the error shape; `make api-types`.
   - Tests first: a `terraform test` that the rendered body contains each
     route with the authoriser and a Lambda integration; `make
     api-types-check` passes.
-- [ ] **7. DynamoDB table.** `meal-planner-<env>-data` per §4: on-demand,
+- [x] **7. DynamoDB table.** `meal-planner-<env>-data` per §4: on-demand,
       PITR, `gsi1` keys-only, deletion protection in prod only.
   - Tests first: `terraform test` for the keys, GSI projection, PITR, and
     deletion protection on in prod and off in test.
-- [ ] **8. Lambda module and functions.** `terraform/module/lambda` (function
+- [x] **8. Lambda module and functions.** `terraform/module/lambda` (function
       from a placeholder, `ignore_changes` on code, its own role and 14-day
       log group, API invoke permission). The `holidays` and `users`
       functions with §6's least-privilege policies and environment
