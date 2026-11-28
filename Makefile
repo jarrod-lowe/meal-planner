@@ -356,8 +356,31 @@ api-types-check: install
 test-unit: install
 	pnpm test
 
+# The store tests run against DynamoDB Local in Docker, and fail without it.
+# The container is always stopped, and go test's exit code kept.
+DYNAMODB_LOCAL_IMAGE := amazon/dynamodb-local:3.3.2
+DYNAMODB_LOCAL_NAME := $(PROJECT)-dynamodb-local
+DYNAMODB_LOCAL_PORT := 8765
+DYNAMODB_LOCAL_URL := http://localhost:$(DYNAMODB_LOCAL_PORT)
+# Dummy credentials, and no profile, so the SDK never looks for real ones.
+GO_TEST_ENV := DYNAMODB_ENDPOINT=$(DYNAMODB_LOCAL_URL) AWS_PROFILE= \
+	AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local AWS_REGION=$(AWS_REGION)
+
 test-go:
-	cd backend && go test ./...
+	@docker rm -f $(DYNAMODB_LOCAL_NAME) > /dev/null 2>&1 || true
+	docker run -d --rm -p $(DYNAMODB_LOCAL_PORT):8000 --name $(DYNAMODB_LOCAL_NAME) \
+		$(DYNAMODB_LOCAL_IMAGE) -jar DynamoDBLocal.jar -inMemory -sharedDb > /dev/null
+	@tries=0; until curl -s -o /dev/null $(DYNAMODB_LOCAL_URL); do \
+		tries=`expr $$tries + 1`; \
+		if [ $$tries -ge 60 ]; then \
+			echo "DynamoDB Local didn't start on $(DYNAMODB_LOCAL_URL)."; \
+			docker stop $(DYNAMODB_LOCAL_NAME) > /dev/null; exit 1; \
+		fi; \
+		sleep 0.5; \
+	done
+	cd backend && $(GO_TEST_ENV) go test ./... || status=$$?; \
+	docker stop $(DYNAMODB_LOCAL_NAME) > /dev/null; \
+	exit $${status:-0}
 
 test: lint check validate api-types-check test-unit test-go test-terraform trivy
 
