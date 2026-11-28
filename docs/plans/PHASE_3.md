@@ -87,7 +87,7 @@ picker), §10 (component tests); ARCHITECTURE "Helpfulness".
       module, with its policy and `TABLE_NAME`; add it to `LAMBDAS` and the
       function-name output.
   - Tests first: the function's settings and IAM actions and resources.
-- [ ] **6. Deploy to test.** The agent runs `make deploy-test`; then
+- [x] **6. Deploy to test.** The agent runs `make deploy-test`; then
       `GET /api/catalogue` without a token returns `401`, and the function
       runs the built zip.
 - [ ] **7. PR and review.** Open the PR; Codex loop.
