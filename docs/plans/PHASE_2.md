@@ -60,7 +60,7 @@ references: DESIGN §1 (conventions), §2.2 (stored facts), §4 (DynamoDB), §5
 
 ## Prerequisites
 
-- [ ] The human creates a second test user (`make create-user ENV=test`) to
+- [x] The human creates a second test user (`make create-user ENV=test`) to
       check "a friend's changes after a refresh".
 
 ## PR 2.1: Holidays API
@@ -133,7 +133,7 @@ references: DESIGN §1 (conventions), §2.2 (stored facts), §4 (DynamoDB), §5
 - [x] **10. Deploy to test.** The agent runs `make deploy-test`. Then
       `GET /api/holidays` without a token returns `401`, and the functions
       have the real code (`aws lambda get-function`, read-only profile).
-- [ ] **11. PR and review.** Open the PR; Codex loop.
+- [x] **11. PR and review.** Open the PR; Codex loop.
 
 ## PR 2.2: Holidays UI
 
@@ -171,6 +171,6 @@ references: DESIGN §1 (conventions), §2.2 (stored facts), §4 (DynamoDB), §5
       and a version conflict showing the toast. Axe checks on each new page,
       desktop and Pixel 7.
 - [x] **18. Seed.** `make seed-test EMAIL=`, per the decision above.
-- [ ] **19. Verify in test (human).** `make deploy-test`, then the "You can"
+- [x] **19. Verify in test (human).** `make deploy-test`, then the "You can"
       list, using the second user for the refresh check.
 - [ ] **20. PR and review.** Open the PR; Codex loop.
