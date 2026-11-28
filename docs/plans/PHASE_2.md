@@ -60,7 +60,7 @@ references: DESIGN §1 (conventions), §2.2 (stored facts), §4 (DynamoDB), §5
 
 ## Prerequisites
 
-- [ ] The human creates a second test user (`make create-user ENV=test`) to
+- [x] The human creates a second test user (`make create-user ENV=test`) to
       check "a friend's changes after a refresh".
 
 ## PR 2.1: Holidays API
@@ -133,44 +133,44 @@ references: DESIGN §1 (conventions), §2.2 (stored facts), §4 (DynamoDB), §5
 - [x] **10. Deploy to test.** The agent runs `make deploy-test`. Then
       `GET /api/holidays` without a token returns `401`, and the functions
       have the real code (`aws lambda get-function`, read-only profile).
-- [ ] **11. PR and review.** Open the PR; Codex loop.
+- [x] **11. PR and review.** Open the PR; Codex loop.
 
 ## PR 2.2: Holidays UI
 
-- [ ] **12. API client.** `src/lib/api/client.ts`: typed `get`/`put`/`del`
+- [x] **12. API client.** `src/lib/api/client.ts`: typed `get`/`put`/`del`
       from the generated types, adding the ID token, parsing the error shape
       into a typed `ApiError`. `src/lib/stores/users.svelte.ts`: `GET /users`
       cached for the session.
   - Tests first: headers, success parsing, each error code, network errors,
     and the users cache fetching once.
-- [ ] **13. Holiday store and `mutate()`.** `src/lib/stores/holiday.svelte.ts`
+- [x] **13. Holiday store and `mutate()`.** `src/lib/stores/holiday.svelte.ts`
       (load, refetch at most every 30 s on focus, refresh) and `mutate()` per
       §7.3, with a toast store and a toast component.
   - Tests first: optimistic apply, replace on success, version conflict
     (replace with `current` and a toast with **Refresh holiday**), retry
     with backoff up to 3 times on network errors and `5xx`, rollback with an
     error toast, and the `already-exists` re-fetch rule from §5.3.
-- [ ] **14. Holiday list.** `/` lists my holidays (name and dates) and has a
+- [x] **14. Holiday list.** `/` lists my holidays (name and dates) and has a
       create form (name, start and end dates, time zone defaulting to the
       browser's). Creating goes to the new holiday.
   - Tests first: component tests for the form's validation and the time-zone
     default; the list's empty state.
-- [ ] **15. Holiday layout and Overview.** `/holidays/[holidayId]/+layout`:
+- [x] **15. Holiday layout and Overview.** `/holidays/[holidayId]/+layout`:
       loads the holiday; a bottom tab bar on mobile and a sidebar on desktop
       with only Overview and People enabled (the others shown disabled); a
       refresh button. Overview shows the name and dates. A `404` or `403`
       shows a message with a link back to `/`.
   - Tests first: component tests for the disabled tabs and the error states.
-- [ ] **16. People.** `/holidays/[holidayId]/people`: attendees (add, rename,
+- [x] **16. People.** `/holidays/[holidayId]/people`: attendees (add, rename,
       delete) and members (add from `GET /users`, showing names; remove;
       removing yourself confirms and returns to `/`; the last-member error
       shown plainly).
   - Tests first: component tests for each action and the confirmation.
-- [ ] **17. E2E.** Playwright against the dev server with the API mocked by
+- [x] **17. E2E.** Playwright against the dev server with the API mocked by
       route interception: create a holiday, add an attendee, add a member,
       and a version conflict showing the toast. Axe checks on each new page,
       desktop and Pixel 7.
-- [ ] **18. Seed.** `make seed-test EMAIL=`, per the decision above.
-- [ ] **19. Verify in test (human).** `make deploy-test`, then the "You can"
+- [x] **18. Seed.** `make seed-test EMAIL=`, per the decision above.
+- [x] **19. Verify in test (human).** `make deploy-test`, then the "You can"
       list, using the second user for the refresh check.
 - [ ] **20. PR and review.** Open the PR; Codex loop.

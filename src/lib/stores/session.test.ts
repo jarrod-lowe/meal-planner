@@ -160,6 +160,21 @@ describe('Session', () => {
     expect(session.step).toBe('signIn');
   });
 
+  it('tells sign-out listeners, until they unsubscribe', async () => {
+    const session = sessionWith();
+    await session.load();
+    await session.signIn(normal.email, normal.password);
+    const calls: string[] = [];
+    const stop = session.onSignOut(() => calls.push('a'));
+    session.onSignOut(() => calls.push('b'));
+
+    await session.signOut();
+    stop();
+    await session.signOut();
+
+    expect(calls).toEqual(['a', 'b', 'b']);
+  });
+
   it('treats a signed-in result with no readable user as an error', async () => {
     const client: AuthClient = {
       ...createFakeAuthClient(),

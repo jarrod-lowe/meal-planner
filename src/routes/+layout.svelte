@@ -4,6 +4,7 @@
   import { goto } from '$app/navigation';
   import { match, resolve } from '$app/paths';
   import { page } from '$app/state';
+  import Toasts from '#lib/components/Toasts.svelte';
   import { t } from '#lib/i18n/en.js';
   import { safeNext } from '#lib/stores/safe-next.js';
   import { session } from '#lib/stores/session.svelte.js';
@@ -47,6 +48,8 @@
     <p role="status">{t('app.loading')}</p>
   </main>
 {/if}
+
+<Toasts />
 
 <style>
   :global(body) {

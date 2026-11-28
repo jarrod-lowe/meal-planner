@@ -24,6 +24,7 @@ export class Session {
 
   readonly #client: () => Promise<AuthClient>;
   #loading: Promise<void> | undefined;
+  #signOutListeners: readonly (() => void)[] = [];
 
   constructor(client: () => Promise<AuthClient>) {
     this.#client = client;
@@ -80,6 +81,15 @@ export class Session {
     this.status = 'signedOut';
     this.resetEmail = '';
     this.#goTo('signIn');
+    for (const listener of this.#signOutListeners) listener();
+  }
+
+  /** Calls `listener` after each sign-out, so per-user caches can clear. Returns an unsubscribe. */
+  onSignOut(listener: () => void): () => void {
+    this.#signOutListeners = [...this.#signOutListeners, listener];
+    return () => {
+      this.#signOutListeners = this.#signOutListeners.filter((other) => other !== listener);
+    };
   }
 
   #goTo(step: LoginStep) {
