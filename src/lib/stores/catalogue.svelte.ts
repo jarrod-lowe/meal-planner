@@ -121,7 +121,8 @@ export class CatalogueStore {
             id: context.id,
             version: item?.version ?? 0
           }) as Item,
-        show: ({ context }, item) => this.#setLists(put(this, context.kind, context.id, item)),
+        show: ({ context }, item) =>
+          this.#setLists(put(this.#lists(), context.kind, context.id, item)),
         send: ({ context }, write, version) => this.#send(write.mutation, context, version),
         fetchStored: async ({ context }) =>
           find(await this.#api.get('/catalogue'), context.kind, context.id)
@@ -225,6 +226,11 @@ export class CatalogueStore {
       label: this.#label(kind, fields, shown, label),
       existed: shown !== undefined
     });
+  }
+
+  // A plain copy: in the browser build, `$state` fields are accessors, so spreading `this` would drop them.
+  #lists(): Lists {
+    return { recipes: this.recipes, ingredients: this.ingredients };
   }
 
   #setLists(lists: Lists) {
