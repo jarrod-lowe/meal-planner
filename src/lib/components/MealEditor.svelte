@@ -167,6 +167,8 @@
   let changingRecipe = $state(false);
   let changeButton = $state<HTMLButtonElement>();
   let picker = $state<{ focus(): void }>();
+  /** A new meal's fields while its first save is in flight: the editor remounts from its response. */
+  const locked = $derived(isNew && saving);
   const errors = $derived<MealErrors>(submitted ? mealErrors(draft) : {});
 
   const fieldId = (name: string) => `${uid}-${name}`;
@@ -206,6 +208,7 @@
   }
 
   async function chooseRecipe(recipe: Recipe) {
+    if (locked) return;
     edited();
     draft.recipeId = recipe.id;
     changingRecipe = false;
@@ -299,6 +302,7 @@
 
   /** Keeps the draft, as it is, for when the user comes back with a recipe. */
   function createRecipe(query: string) {
+    if (locked) return;
     drafts.put(draftKey, {
       id,
       mealtimeId,
@@ -369,160 +373,163 @@
       {/if}
     </div>
 
-    <div class="fields">
-      <div class="field grow">
-        <label for={fieldId('name')}>{t('meal.name')}</label>
-        <input
-          id={fieldId('name')}
-          type="text"
-          autocomplete="off"
-          maxlength={maxNameLength}
-          bind:value={() => draft.name, setName}
-          aria-invalid={errors.name ? true : undefined}
-          aria-describedby={errors.name ? fieldId('name-error') : undefined}
-        />
-        {#if errors.name}
-          <p id={fieldId('name-error')} class="error">{t(`meal.errors.${errors.name}`)}</p>
-        {/if}
-      </div>
-      <div class="field">
-        <label for={fieldId('slot')}>{t('meal.slot')}</label>
-        <select id={fieldId('slot')} bind:value={() => draft.slot, setSlot}>
-          {#each MEAL_SLOTS as slot (slot)}
-            <option value={slot}>{t(`slots.${slot}`)}</option>
-          {/each}
-        </select>
-      </div>
-      <div class="field">
-        <label for={fieldId('date')}>{t('meal.date')}</label>
-        <input
-          id={fieldId('date')}
-          type="date"
-          bind:value={() => draft.date, setDate}
-          aria-invalid={errors.date ? true : undefined}
-          aria-describedby={errors.date ? fieldId('date-error') : undefined}
-        />
-        {#if errors.date}
-          <p id={fieldId('date-error')} class="error">{t(`meal.errors.${errors.date}`)}</p>
-        {/if}
-      </div>
-      <div class="field">
-        <label for={fieldId('time')}>{t('meal.time')}</label>
-        <input
-          id={fieldId('time')}
-          type="time"
-          bind:value={() => draft.time, setTime}
-          aria-invalid={errors.time ? true : undefined}
-          aria-describedby={errors.time ? fieldId('time-error') : undefined}
-        />
-        {#if errors.time}
-          <p id={fieldId('time-error')} class="error">{t(`meal.errors.${errors.time}`)}</p>
-        {/if}
-      </div>
-    </div>
-
-    <section class="recipe" aria-labelledby={fieldId('recipe')}>
-      <h2 id={fieldId('recipe')}>{t('meal.recipe')}</h2>
-      {#if draft.recipeId !== null}
-        <div class="chosen">
-          <span class="chosen-name">
-            {recipe ? recipe.name : t('meal.missingRecipe')}
-            {#if recipe?.deleted}
-              <span class="badge">{t('meal.hiddenRecipe')}</span>
-            {/if}
-          </span>
-          <button
-            type="button"
-            bind:this={changeButton}
-            aria-label={t('meal.changeLabel')}
-            aria-expanded={changingRecipe}
-            onclick={changeRecipe}
-          >
-            {t('meal.change')}
-          </button>
-          <button type="button" aria-label={t('meal.removeLabel')} onclick={removeRecipe}>
-            {t('meal.remove')}
-          </button>
+    <!-- A new meal's first save remounts the editor from the response, so lock its fields meanwhile. -->
+    <fieldset class="draft" role="presentation" disabled={locked}>
+      <div class="fields">
+        <div class="field grow">
+          <label for={fieldId('name')}>{t('meal.name')}</label>
+          <input
+            id={fieldId('name')}
+            type="text"
+            autocomplete="off"
+            maxlength={maxNameLength}
+            bind:value={() => draft.name, setName}
+            aria-invalid={errors.name ? true : undefined}
+            aria-describedby={errors.name ? fieldId('name-error') : undefined}
+          />
+          {#if errors.name}
+            <p id={fieldId('name-error')} class="error">{t(`meal.errors.${errors.name}`)}</p>
+          {/if}
         </div>
-      {:else}
-        <p class="none">{t('meal.noRecipe')}</p>
-      {/if}
-      {#if draft.recipeId === null || changingRecipe}
-        <RecipePicker
-          bind:this={picker}
-          store={catalogue}
-          label={t('meal.findRecipe')}
-          onselect={chooseRecipe}
-          oncreate={oncreaterecipe ? createRecipe : undefined}
-        />
-      {/if}
-    </section>
-
-    <fieldset class="eating">
-      <legend>{t('meal.eating')}</legend>
-      {#if attendees.length === 0}
-        <p class="note">{t('meal.noAttendees')}</p>
-      {:else}
-        <div class="shortcuts">
-          <button type="button" onclick={() => setEveryone(true)}>{t('meal.everyone')}</button>
-          <button type="button" onclick={() => setEveryone(false)}>{t('meal.noOne')}</button>
+        <div class="field">
+          <label for={fieldId('slot')}>{t('meal.slot')}</label>
+          <select id={fieldId('slot')} bind:value={() => draft.slot, setSlot}>
+            {#each MEAL_SLOTS as slot (slot)}
+              <option value={slot}>{t(`slots.${slot}`)}</option>
+            {/each}
+          </select>
         </div>
-        <ul>
-          {#each attendees as attendee (attendee.id)}
-            <li>
-              <input
-                id={fieldId(`attendee-${attendee.id}`)}
-                type="checkbox"
-                value={attendee.id}
-                bind:group={draft.attendeeIds}
-                onchange={edited}
-              />
-              <label for={fieldId(`attendee-${attendee.id}`)}>{attendee.name}</label>
-            </li>
-          {/each}
-        </ul>
-      {/if}
-    </fieldset>
+        <div class="field">
+          <label for={fieldId('date')}>{t('meal.date')}</label>
+          <input
+            id={fieldId('date')}
+            type="date"
+            bind:value={() => draft.date, setDate}
+            aria-invalid={errors.date ? true : undefined}
+            aria-describedby={errors.date ? fieldId('date-error') : undefined}
+          />
+          {#if errors.date}
+            <p id={fieldId('date-error')} class="error">{t(`meal.errors.${errors.date}`)}</p>
+          {/if}
+        </div>
+        <div class="field">
+          <label for={fieldId('time')}>{t('meal.time')}</label>
+          <input
+            id={fieldId('time')}
+            type="time"
+            bind:value={() => draft.time, setTime}
+            aria-invalid={errors.time ? true : undefined}
+            aria-describedby={errors.time ? fieldId('time-error') : undefined}
+          />
+          {#if errors.time}
+            <p id={fieldId('time-error')} class="error">{t(`meal.errors.${errors.time}`)}</p>
+          {/if}
+        </div>
+      </div>
 
-    <section class="preview" aria-labelledby={fieldId('preview')}>
-      <h2 id={fieldId('preview')}>{t('meal.preview.heading')}</h2>
-      {#if !recipe}
-        <p class="note">{t('meal.preview.noRecipe')}</p>
-      {:else if servings === 0}
-        <p class="note">{t('meal.preview.noOne')}</p>
-      {:else}
-        <p>
-          {t('meal.preview.serves', {
-            servings,
-            recipeServings: formatQuantity(recipe.servings),
-            factor: formatQuantity(servings / recipe.servings)
-          })}
-        </p>
-        {#if consumption.length === 0}
-          <p class="note">{t('meal.preview.empty')}</p>
+      <section class="recipe" aria-labelledby={fieldId('recipe')}>
+        <h2 id={fieldId('recipe')}>{t('meal.recipe')}</h2>
+        {#if draft.recipeId !== null}
+          <div class="chosen">
+            <span class="chosen-name">
+              {recipe ? recipe.name : t('meal.missingRecipe')}
+              {#if recipe?.deleted}
+                <span class="badge">{t('meal.hiddenRecipe')}</span>
+              {/if}
+            </span>
+            <button
+              type="button"
+              bind:this={changeButton}
+              aria-label={t('meal.changeLabel')}
+              aria-expanded={changingRecipe}
+              onclick={changeRecipe}
+            >
+              {t('meal.change')}
+            </button>
+            <button type="button" aria-label={t('meal.removeLabel')} onclick={removeRecipe}>
+              {t('meal.remove')}
+            </button>
+          </div>
         {:else}
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">{t('meal.preview.ingredient')}</th>
-                <th scope="col" class="number">{t('meal.preview.quantity')}</th>
-                <th scope="col">{t('meal.preview.unit')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each consumption as line (line.ingredientId)}
-                {@const item = ingredientsById.get(line.ingredientId)}
-                <tr>
-                  <td>{item?.name}</td>
-                  <td class="number">{formatQuantity(line.quantity)}</td>
-                  <td>{item?.unit}</td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
+          <p class="none">{t('meal.noRecipe')}</p>
         {/if}
-      {/if}
-    </section>
+        {#if draft.recipeId === null || changingRecipe}
+          <RecipePicker
+            bind:this={picker}
+            store={catalogue}
+            label={t('meal.findRecipe')}
+            onselect={chooseRecipe}
+            oncreate={oncreaterecipe ? createRecipe : undefined}
+          />
+        {/if}
+      </section>
+
+      <fieldset class="eating">
+        <legend>{t('meal.eating')}</legend>
+        {#if attendees.length === 0}
+          <p class="note">{t('meal.noAttendees')}</p>
+        {:else}
+          <div class="shortcuts">
+            <button type="button" onclick={() => setEveryone(true)}>{t('meal.everyone')}</button>
+            <button type="button" onclick={() => setEveryone(false)}>{t('meal.noOne')}</button>
+          </div>
+          <ul>
+            {#each attendees as attendee (attendee.id)}
+              <li>
+                <input
+                  id={fieldId(`attendee-${attendee.id}`)}
+                  type="checkbox"
+                  value={attendee.id}
+                  bind:group={draft.attendeeIds}
+                  onchange={edited}
+                />
+                <label for={fieldId(`attendee-${attendee.id}`)}>{attendee.name}</label>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </fieldset>
+
+      <section class="preview" aria-labelledby={fieldId('preview')}>
+        <h2 id={fieldId('preview')}>{t('meal.preview.heading')}</h2>
+        {#if !recipe}
+          <p class="note">{t('meal.preview.noRecipe')}</p>
+        {:else if servings === 0}
+          <p class="note">{t('meal.preview.noOne')}</p>
+        {:else}
+          <p>
+            {t('meal.preview.serves', {
+              servings,
+              recipeServings: formatQuantity(recipe.servings),
+              factor: formatQuantity(servings / recipe.servings)
+            })}
+          </p>
+          {#if consumption.length === 0}
+            <p class="note">{t('meal.preview.empty')}</p>
+          {:else}
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">{t('meal.preview.ingredient')}</th>
+                  <th scope="col" class="number">{t('meal.preview.quantity')}</th>
+                  <th scope="col">{t('meal.preview.unit')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each consumption as line (line.ingredientId)}
+                  {@const item = ingredientsById.get(line.ingredientId)}
+                  <tr>
+                    <td>{item?.name}</td>
+                    <td class="number">{formatQuantity(line.quantity)}</td>
+                    <td>{item?.unit}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          {/if}
+        {/if}
+      </section>
+    </fieldset>
 
     <div class="actions">
       <button type="button" class="primary" onclick={save} aria-disabled={busy} aria-busy={saving}>
@@ -643,6 +650,11 @@
     margin: 0;
     padding: 0;
     border: 0;
+  }
+
+  .draft {
+    min-inline-size: 0;
+    gap: var(--space-6);
   }
 
   legend {

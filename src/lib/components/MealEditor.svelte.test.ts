@@ -381,6 +381,62 @@ describe('MealEditor', () => {
     expect(await screen.findByText(t('meal.saved'))).toBeTruthy();
   });
 
+  it('locks a new meal’s fields while it’s first saved, so no edit is lost', async () => {
+    const { user, reply, oncreated } = await setup({ date: '2027-01-01', slot: 'dinner' });
+    let answer: (response: Response) => void = () => undefined;
+    const pending = new Promise<Response>((resolve) => (answer = resolve));
+    reply('PUT', pending);
+
+    await user.click(button(t('meal.save')));
+
+    expect(button(t('meal.saving')).getAttribute('aria-busy')).toBe('true');
+    const controls = [
+      nameField(),
+      slotField(),
+      dateField(),
+      timeField(),
+      screen.getByRole('combobox', { name: t('meal.findRecipe') }),
+      button(t('meal.everyone')),
+      button(t('meal.noOne')),
+      ...within(screen.getByRole('group', { name: t('meal.eating') })).getAllByRole('checkbox')
+    ];
+    expect(controls.filter((control) => !control.matches(':disabled'))).toEqual([]);
+    // Typing into a locked field changes nothing.
+    await user.type(nameField(), 'Late');
+    expect(nameField().value).toBe('1 Jan Dinner');
+    expect(oncreated).not.toHaveBeenCalled();
+
+    answer(
+      new Response(JSON.stringify(saved({ name: '1 Jan Dinner', version: 1 })), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    );
+    await vi.waitFor(() => expect(oncreated).toHaveBeenCalledOnce());
+  });
+
+  it('keeps an edit made while a saved meal’s update is in flight', async () => {
+    const { user, reply, writes } = await setup({ mealId, meals: [saved()] });
+    let answer: (response: Response) => void = () => undefined;
+    reply('PUT', new Promise<Response>((resolve) => (answer = resolve)));
+
+    await user.click(button(t('meal.save')));
+    expect(nameField().matches(':disabled')).toBe(false);
+    await user.clear(nameField());
+    await user.type(nameField(), 'Later');
+
+    answer(
+      new Response(JSON.stringify(saved({ version: 4 })), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    );
+    await vi.waitFor(() => expect(button(t('meal.save'))).toBeTruthy());
+    expect(writes()).toHaveLength(1);
+    expect(nameField().value).toBe('Later');
+    expect(screen.queryByText(t('meal.changedElsewhere'))).toBeNull();
+  });
+
   it('says when the meal doesn’t exist', async () => {
     await setup({ mealId });
 
