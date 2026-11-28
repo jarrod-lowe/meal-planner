@@ -72,12 +72,15 @@ terraform/%/.init-local: $$(wildcard terraform/$$*/*.tf) $$(wildcard terraform/$
 # Real init, against the S3 backend. State locking (`use_lockfile`) is set in
 # each environment's backend block.
 .PRECIOUS: terraform/environment/%/.terraform
-terraform/environment/%/.terraform:
+# Re-run when the lock file changes (a new or upgraded provider needs a fresh
+# init). Touched afterwards, since init needn't change the directory's mtime.
+terraform/environment/%/.terraform: $$(wildcard terraform/environment/$$*/.terraform.lock.hcl)
 	$(require-aws)
 	cd terraform/environment/$* && terraform init -input=false \
 		-backend-config="bucket=$(STATE_BUCKET)" \
 		-backend-config="key=$(PROJECT)/$*/terraform.tfstate" \
 		-backend-config="region=$(AWS_REGION)"
+	@touch $@
 
 # The state environment keeps its state in the bucket it manages, so the
 # bucket has to exist before init.

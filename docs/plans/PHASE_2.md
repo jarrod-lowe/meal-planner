@@ -130,7 +130,7 @@ references: DESIGN §1 (conventions), §2.2 (stored facts), §4 (DynamoDB), §5
       `make deploy-lambdas ENV=prod`. Update DESIGN §9 and the AGENTS.md
       commands table.
   - Check: `make build` makes both zips; two builds give identical zips.
-- [ ] **10. Deploy to test.** The agent runs `make deploy-test`. Then
+- [x] **10. Deploy to test.** The agent runs `make deploy-test`. Then
       `GET /api/holidays` without a token returns `401`, and the functions
       have the real code (`aws lambda get-function`, read-only profile).
 - [ ] **11. PR and review.** Open the PR; Codex loop.
