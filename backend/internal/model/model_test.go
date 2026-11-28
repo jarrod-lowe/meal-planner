@@ -270,3 +270,97 @@ func TestShopSectionsOrder(t *testing.T) {
 		t.Errorf("ShopSections = %v, want %v", ShopSections, want)
 	}
 }
+
+func TestMealSlotsOrder(t *testing.T) {
+	want := []MealSlot{"breakfast", "lunch", "dinner", "snacks", "other"}
+	if !reflect.DeepEqual(MealSlots, want) {
+		t.Errorf("MealSlots = %v, want %v", MealSlots, want)
+	}
+}
+
+func TestMealJSON(t *testing.T) {
+	recipe := "r1"
+	m := Meal{ID: "m1", Name: "1 Jan Dinner", Slot: MealSlotDinner, RecipeID: &recipe,
+		Mealtimes: []Mealtime{{ID: "t1", At: "2027-01-01T18:00", AttendeeIDs: []string{"a1", "a2"}}}, Versioned: versioned}
+	m.SetKeys("h1")
+	if m.PK != "HOLIDAY#h1" || m.SK != "MEAL#m1" || m.Type != "meal" {
+		t.Errorf("meal keys = %+v", m.StorageKeys)
+	}
+	got := jsonRoundTrip(t, m,
+		`{"id":"m1","name":"1 Jan Dinner","slot":"dinner","recipeId":"r1","mealtimes":[{"id":"t1","at":"2027-01-01T18:00","attendeeIds":["a1","a2"]}],"version":3,"updatedAt":"2026-01-02T03:04:05.000Z","updatedBy":"sub-1"}`)
+	m.StorageKeys = StorageKeys{}
+	if !reflect.DeepEqual(got, m) {
+		t.Errorf("round trip = %+v, want %+v", got, m)
+	}
+
+	// No recipe is written as null, and no attendees as an empty array.
+	none := Meal{ID: "m2", Name: "Snacks", Slot: MealSlotSnacks, Mealtimes: []Mealtime{{ID: "t2", At: "2027-01-02T15:00"}}}
+	got = jsonRoundTrip(t, none,
+		`{"id":"m2","name":"Snacks","slot":"snacks","recipeId":null,"mealtimes":[{"id":"t2","at":"2027-01-02T15:00","attendeeIds":[]}],"version":0,"updatedAt":"","updatedBy":""}`)
+	if got.RecipeID != nil || got.Mealtimes[0].AttendeeIDs == nil {
+		t.Errorf("round trip = %+v", got)
+	}
+	var p = &none
+	if b, _ := json.Marshal(p); !strings.Contains(string(b), `"attendeeIds":[]`) || !strings.Contains(string(b), `"recipeId":null`) {
+		t.Errorf("pointer JSON = %s", b)
+	}
+}
+
+func TestMealDynamoDBRoundTrip(t *testing.T) {
+	recipe := "r1"
+	for _, m := range []Meal{
+		{ID: "m1", Name: "Dinner", Slot: MealSlotDinner, RecipeID: &recipe,
+			Mealtimes: []Mealtime{{ID: "t1", At: "2027-01-01T18:00", AttendeeIDs: []string{"a1"}}}, Versioned: versioned},
+		{ID: "m2", Name: "Lunch", Slot: MealSlotLunch,
+			Mealtimes: []Mealtime{{ID: "t2", At: "2027-01-01T12:00", AttendeeIDs: []string{}}}, Versioned: versioned},
+	} {
+		m.SetKeys("h1")
+		av, err := attributevalue.MarshalMap(m)
+		if err != nil {
+			t.Fatalf("MarshalMap() error = %v", err)
+		}
+		for _, attr := range []string{"PK", "SK", "type", "id", "name", "slot", "recipeId", "mealtimes", "version"} {
+			if _, ok := av[attr]; !ok {
+				t.Errorf("%s: no %s attribute in %v", m.ID, attr, av)
+			}
+		}
+		var back Meal
+		if err := attributevalue.UnmarshalMap(av, &back); err != nil {
+			t.Fatalf("UnmarshalMap() error = %v", err)
+		}
+		if (back.RecipeID == nil) != (m.RecipeID == nil) || (back.RecipeID != nil && *back.RecipeID != recipe) {
+			t.Errorf("%s: recipeId = %v, want %v", m.ID, back.RecipeID, m.RecipeID)
+		}
+		if back.SK != "MEAL#"+m.ID || len(back.Mealtimes) != 1 || back.Mealtimes[0].At != m.Mealtimes[0].At {
+			t.Errorf("DynamoDB round trip = %+v, want %+v", back, m)
+		}
+	}
+}
+
+func TestMealInputJSON(t *testing.T) {
+	var in MealInput
+	if err := json.Unmarshal([]byte(`{"name":"D","slot":"dinner","recipeId":null,"mealtimes":[{"id":"t1","at":"2027-01-01T18:00","attendeeIds":["a1"]}],"version":2}`), &in); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if in.Name != "D" || in.Slot != MealSlotDinner || in.RecipeID != nil || len(in.Mealtimes) != 1 || in.Version != 2 {
+		t.Errorf("MealInput = %+v", in)
+	}
+	if err := json.Unmarshal([]byte(`{"recipeId":"r1"}`), &in); err != nil || in.RecipeID == nil || *in.RecipeID != "r1" {
+		t.Errorf("MealInput recipeId = %v (%v)", in.RecipeID, err)
+	}
+}
+
+func TestHolidayFactsJSONWithMeals(t *testing.T) {
+	f := HolidayFacts{Holiday: Holiday{ID: "h1"}, Meals: []Meal{{ID: "m1", Slot: MealSlotOther, Mealtimes: []Mealtime{{ID: "t1"}}}}}
+	b, err := json.Marshal(f)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if !strings.Contains(string(b), `"meals":[{"id":"m1","name":"","slot":"other","recipeId":null,"mealtimes":[{"id":"t1","at":"","attendeeIds":[]}]`) {
+		t.Errorf("JSON = %s", b)
+	}
+	var got HolidayFacts
+	if err := json.Unmarshal(b, &got); err != nil || len(got.Meals) != 1 || got.Meals[0].ID != "m1" {
+		t.Errorf("round trip = %+v (%v)", got, err)
+	}
+}

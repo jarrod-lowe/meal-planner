@@ -62,7 +62,10 @@ export default defineConfig(
   {
     files: ['src/lib/engine/**'],
     rules: {
-      'no-restricted-imports': [
+      // The typescript-eslint version, so `import type` from the generated API
+      // types can be allowed while the client stays forbidden.
+      'no-restricted-imports': 'off',
+      '@typescript-eslint/no-restricted-imports': [
         'error',
         {
           // Patterns use gitignore syntax, where a leading `#` starts a
@@ -73,8 +76,20 @@ export default defineConfig(
               message: `${engineRule} No Svelte or SvelteKit imports.`
             },
             {
-              group: ['\\#lib/api', '\\#lib/api/*', '**/api', '**/api/*'],
+              group: [
+                '\\#lib/api',
+                '\\#lib/api/*',
+                '!\\#lib/api/types.js',
+                '**/api',
+                '**/api/*',
+                '!**/api/types.js'
+              ],
               message: `${engineRule} No API client imports.`
+            },
+            {
+              group: ['\\#lib/api/types.js', '**/api/types.js'],
+              allowTypeImports: true,
+              message: `${engineRule} Only \`import type\` from the API types.`
             },
             {
               group: ['\\#lib/stores', '\\#lib/stores/*', '**/stores', '**/stores/*'],

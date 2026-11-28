@@ -205,3 +205,90 @@ func first(errs ...error) error {
 	}
 	return nil
 }
+
+// Meal limits (DESIGN §5.2).
+const (
+	MaxMealtimes         = 100
+	MaxMealtimeAttendees = 100
+)
+
+var localDateTimePattern = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$`)
+
+// localDateTimeLayout is a LocalDateTime: YYYY-MM-DDTHH:mm (DESIGN §1).
+const localDateTimeLayout = "2006-01-02T15:04"
+
+// LocalDateTime checks s is a real date and time written YYYY-MM-DDTHH:mm.
+func LocalDateTime(field, s string) error {
+	if !localDateTimePattern.MatchString(s) {
+		return errorf("%s must be a date and time in the form YYYY-MM-DDTHH:mm", field)
+	}
+	if _, err := time.Parse(localDateTimeLayout, s); err != nil {
+		return errorf("%s is not a real date and time", field)
+	}
+	return nil
+}
+
+// MealSlot checks s is one of the fixed meal slots (DESIGN §2.1).
+func MealSlot(field string, s model.MealSlot) error {
+	if !slices.Contains(model.MealSlots, s) {
+		return errorf("%s must be a known meal slot", field)
+	}
+	return nil
+}
+
+// MealInput checks the body of PUT /holidays/{holidayId}/meals/{id}.
+// Mealtime IDs must be unique within the meal, and attendee IDs within each
+// mealtime. Whether the recipe and attendees exist isn't checked (DESIGN
+// §5.2).
+func MealInput(in model.MealInput) error {
+	if err := first(
+		Name("name", in.Name),
+		MealSlot("slot", in.Slot),
+		Version(in.Version),
+	); err != nil {
+		return err
+	}
+	if in.RecipeID != nil {
+		if err := ID("recipeId", *in.RecipeID); err != nil {
+			return err
+		}
+	}
+	if len(in.Mealtimes) == 0 || len(in.Mealtimes) > MaxMealtimes {
+		return errorf("mealtimes must have 1 to %d entries", MaxMealtimes)
+	}
+	seen := make(map[string]bool, len(in.Mealtimes))
+	for i, mt := range in.Mealtimes {
+		field := fmt.Sprintf("mealtimes[%d]", i)
+		if err := first(ID(field+".id", mt.ID), LocalDateTime(field+".at", mt.At)); err != nil {
+			return err
+		}
+		if seen[mt.ID] {
+			return errorf("%s repeats a mealtime ID", field)
+		}
+		seen[mt.ID] = true
+		if err := attendeeIDs(field+".attendeeIds", mt.AttendeeIDs); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// attendeeIDs checks a mealtime's attendee IDs are unique UUIDs, at most
+// MaxMealtimeAttendees of them.
+func attendeeIDs(field string, ids []string) error {
+	if len(ids) > MaxMealtimeAttendees {
+		return errorf("%s must have at most %d entries", field, MaxMealtimeAttendees)
+	}
+	seen := make(map[string]bool, len(ids))
+	for j, id := range ids {
+		f := fmt.Sprintf("%s[%d]", field, j)
+		if err := ID(f, id); err != nil {
+			return err
+		}
+		if seen[id] {
+			return errorf("%s repeats an attendee", f)
+		}
+		seen[id] = true
+	}
+	return nil
+}

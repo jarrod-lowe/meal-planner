@@ -240,7 +240,7 @@ func (s *DynamoDB) LoadHoliday(ctx context.Context, holidayID string) (model.Hol
 	}
 	facts := model.HolidayFacts{
 		Attendees:    []model.Attendee{},
-		Meals:        []json.RawMessage{},
+		Meals:        []model.Meal{},
 		Trips:        []json.RawMessage{},
 		StockChanges: []json.RawMessage{},
 		Members:      []model.Member{},
@@ -261,6 +261,9 @@ func (s *DynamoDB) LoadHoliday(ctx context.Context, holidayID string) (model.Hol
 		case model.TypeAttendee:
 			facts.Attendees = append(facts.Attendees, model.Attendee{})
 			target = &facts.Attendees[len(facts.Attendees)-1]
+		case model.TypeMeal:
+			facts.Meals = append(facts.Meals, model.Meal{})
+			target = &facts.Meals[len(facts.Meals)-1]
 		default:
 			continue
 		}

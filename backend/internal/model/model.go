@@ -12,6 +12,7 @@ const (
 	TypeAttendee   = "attendee"
 	TypeRecipe     = "recipe"
 	TypeIngredient = "ingredient"
+	TypeMeal       = "meal"
 )
 
 // Sort keys and key prefixes (DESIGN §4).
@@ -24,6 +25,7 @@ const (
 	CataloguePK      = "CATALOGUE"
 	RecipePrefix     = "RECIPE#"
 	IngredientPrefix = "INGREDIENT#"
+	MealPrefix       = "MEAL#"
 )
 
 // HolidayPK is the partition key of a holiday's items.
@@ -104,13 +106,68 @@ func (a *Attendee) SetKeys(holidayID string) {
 	a.StorageKeys = StorageKeys{PK: HolidayPK(holidayID), SK: AttendeePrefix + a.ID, Type: TypeAttendee}
 }
 
+// MealSlot places a meal on the planner grid (DESIGN §2.1).
+type MealSlot string
+
+// Meal slots, in planner-grid order (DESIGN §2.1).
+const (
+	MealSlotBreakfast MealSlot = "breakfast"
+	MealSlotLunch     MealSlot = "lunch"
+	MealSlotDinner    MealSlot = "dinner"
+	MealSlotSnacks    MealSlot = "snacks"
+	MealSlotOther     MealSlot = "other"
+)
+
+// MealSlots lists every meal slot in planner-grid order.
+var MealSlots = []MealSlot{MealSlotBreakfast, MealSlotLunch, MealSlotDinner, MealSlotSnacks, MealSlotOther}
+
+// Mealtime is one occasion a meal is eaten, embedded in its meal.
+type Mealtime struct {
+	ID          string   `json:"id" dynamodbav:"id"`
+	At          string   `json:"at" dynamodbav:"at"` // LocalDateTime, YYYY-MM-DDTHH:mm
+	AttendeeIDs []string `json:"attendeeIds" dynamodbav:"attendeeIds"`
+}
+
+// MarshalJSON writes nil attendee IDs as an empty array, never null.
+func (m Mealtime) MarshalJSON() ([]byte, error) {
+	type plain Mealtime
+	p := plain(m)
+	p.AttendeeIDs = nonNil(p.AttendeeIDs)
+	return json.Marshal(p)
+}
+
+// Meal is a planned meal and its mealtimes, sorted by `at`. RecipeID is nil
+// (JSON null) when the meal has no recipe yet.
+type Meal struct {
+	StorageKeys
+	ID        string     `json:"id" dynamodbav:"id"`
+	Name      string     `json:"name" dynamodbav:"name"`
+	Slot      MealSlot   `json:"slot" dynamodbav:"slot"`
+	RecipeID  *string    `json:"recipeId" dynamodbav:"recipeId"`
+	Mealtimes []Mealtime `json:"mealtimes" dynamodbav:"mealtimes"`
+	Versioned
+}
+
+// SetKeys sets the meal's storage keys from its ID.
+func (m *Meal) SetKeys(holidayID string) {
+	m.StorageKeys = StorageKeys{PK: HolidayPK(holidayID), SK: MealPrefix + m.ID, Type: TypeMeal}
+}
+
+// MarshalJSON writes nil mealtimes as an empty array, never null.
+func (m Meal) MarshalJSON() ([]byte, error) {
+	type plain Meal
+	p := plain(m)
+	p.Mealtimes = nonNil(p.Mealtimes)
+	return json.Marshal(p)
+}
+
 // HolidayFacts is a whole holiday as GET /holidays/{holidayId} returns it:
-// the engine's HolidayFacts (DESIGN §3) plus the members. Meals, trips and
-// stock changes are opaque until the phases that add them.
+// the engine's HolidayFacts (DESIGN §3) plus the members. Trips and stock
+// changes are opaque until the phases that add them.
 type HolidayFacts struct {
 	Holiday      Holiday           `json:"holiday"`
 	Attendees    []Attendee        `json:"attendees"`
-	Meals        []json.RawMessage `json:"meals"`
+	Meals        []Meal            `json:"meals"`
 	Trips        []json.RawMessage `json:"trips"`
 	StockChanges []json.RawMessage `json:"stockChanges"`
 	Members      []Member          `json:"members"`
@@ -266,4 +323,14 @@ type IngredientInput struct {
 	ShopSection ShopSection `json:"shopSection"`
 	Deleted     bool        `json:"deleted"`
 	Version     int         `json:"version"`
+}
+
+// MealInput is the body of PUT /holidays/{holidayId}/meals/{id}. Version 0
+// creates.
+type MealInput struct {
+	Name      string     `json:"name"`
+	Slot      MealSlot   `json:"slot"`
+	RecipeID  *string    `json:"recipeId"`
+	Mealtimes []Mealtime `json:"mealtimes"`
+	Version   int        `json:"version"`
 }

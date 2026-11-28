@@ -88,7 +88,7 @@ interface Attendee extends Versioned {
 
 interface Meal extends Versioned {
   id: string;
-  name: string;           // e.g. "Jan 1 Dinner", "Jan 1–5 Lunch"; suggested by the UI, editable
+  name: string;           // e.g. "1 Jan Dinner", "1–5 Jan Lunch"; suggested by the UI, editable
   slot: MealSlot;         // places the meal on the planner grid
   recipeId: string | null;
   mealtimes: Mealtime[];  // 1..n, embedded; sorted by `at`
@@ -672,7 +672,7 @@ used to show member names.
 - **Mealtimes:** each mealtime is a chip showing the meal name, the recipe name
   (or *No recipe yet*), servings, and a red dot if it has a shortfall.
 - **Generic meals:** a meal's mealtimes in consecutive rows of one column are
-  joined into one vertical bar, so "Jan 1–5 Lunch" reads as one thing.
+  joined into one vertical bar, so "1–5 Jan Lunch" reads as one thing.
 - **Parallel meals:** meals sharing a slot and day (Dinner A and Dinner B) sit
   side by side in the cell.
 - **Adding meals:** an empty cell has a **+** that opens the meal editor
@@ -681,7 +681,7 @@ used to show member names.
 
 #### Meal editor
 
-- **Name:** suggested from the slot and dates ("Jan 1 Dinner", "Jan 1–5
+- **Name:** suggested from the slot and dates ("1 Jan Dinner", "1–5 Jan
   Lunch") until the user edits it.
 - **Recipe:** a fuzzy picker, with an option to *create new recipe*, which
   opens the recipe editor and returns.
@@ -764,7 +764,7 @@ used to show member names.
 #### Overview (`/holidays/[holidayId]`)
 
 - **Shortfalls:** upcoming shortfalls first, as cards:
-  - each reads "Jan 3 Dinner: short 2 cans Beans"
+  - each reads "3 Jan Dinner: short 2 cans Beans"
   - each links to the meal, plus a *Add a trip before this* action that
     prefills a trip at the same date, 2 hours earlier
   - past shortfalls sit in a collapsed section

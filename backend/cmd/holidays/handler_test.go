@@ -30,9 +30,36 @@ const (
 	meSK     = model.MemberPrefix + me
 	friendSK = model.MemberPrefix + friend
 	attSK    = model.AttendeePrefix + att
+	meal     = "01936b2e-7f1a-7c3d-8e4f-0000000000c1"
+	newMeal  = "01936b2e-7f1a-7c3d-8e4f-0000000000c2"
+	recipe   = "01936b2e-7f1a-7c3d-8e4f-0000000000d1"
+	mt1      = "01936b2e-7f1a-7c3d-8e4f-0000000000e1"
+	mt2      = "01936b2e-7f1a-7c3d-8e4f-0000000000e2"
+	mt3      = "01936b2e-7f1a-7c3d-8e4f-0000000000e3"
+	mealSK   = model.MealPrefix + meal
 )
 
 const validHoliday = `{"name":"Summer","timeZone":"Pacific/Auckland","startDate":"2026-12-20","endDate":"2027-01-05","version":0}`
+
+// validMeal is a meal body with two mealtimes, out of order, and no recipe.
+const validMeal = `{"name":"1 Jan Dinner","slot":"dinner","recipeId":null,"mealtimes":[` +
+	`{"id":"` + mt2 + `","at":"2027-01-02T18:00","attendeeIds":["` + att + `"]},` +
+	`{"id":"` + mt1 + `","at":"2027-01-01T18:00","attendeeIds":[]}],"version":0}`
+
+// mealBody returns validMeal with one field replaced by a JSON value.
+func mealBody(field, value string) string {
+	var m map[string]any
+	_ = json.Unmarshal([]byte(validMeal), &m)
+	var v any
+	_ = json.Unmarshal([]byte(value), &v)
+	m[field] = v
+	b, _ := json.Marshal(m)
+	return string(b)
+}
+
+func mealParams(holidayID, id string) map[string]string {
+	return map[string]string{"holidayId": holidayID, "id": id}
+}
 
 type request struct {
 	method   string
@@ -106,12 +133,14 @@ func decode[T any](t *testing.T, body string) T {
 	return v
 }
 
-// seeded returns a store with `hol` (members me and friend, one attendee),
+// seeded returns a store with `hol` (members me and friend, one attendee, one
+// meal at version 3),
 // `hol2` (me only) and `hol3` (stranger only).
 func seeded() *fakeStore {
 	f := newFakeStore()
 	f.addHoliday(hol, "Summer", "2026-12-20", "2027-01-05", me, friend)
 	f.addAttendee(hol, att, "Sam", 2)
+	f.addMeal(hol, meal, 3)
 	f.addHoliday(hol2, "Autumn", "2026-04-01", "2026-04-05", me)
 	f.addHoliday(hol3, "Winter", "2026-07-01", "2026-07-05", stranger)
 	return f
@@ -191,7 +220,7 @@ func TestSuccessPaths(t *testing.T) {
 			req:        request{method: "GET", resource: "/holidays/{holidayId}", params: holidayParams(hol), sub: me},
 			wantStatus: 200,
 			check: func(t *testing.T, _ *fakeStore, body string) {
-				for _, want := range []string{`"meals":[]`, `"trips":[]`, `"stockChanges":[]`, `"name":"Sam"`, `"userSub":"` + friend + `"`, `"holiday":{"id":"` + hol + `"`} {
+				for _, want := range []string{`"meals":[{"id":"` + meal + `"`, `"recipeId":null`, `"attendeeIds":[]`, `"trips":[]`, `"stockChanges":[]`, `"name":"Sam"`, `"userSub":"` + friend + `"`, `"holiday":{"id":"` + hol + `"`} {
 					if !strings.Contains(body, want) {
 						t.Errorf("body %s lacks %s", body, want)
 					}
@@ -308,6 +337,78 @@ func TestSuccessPaths(t *testing.T) {
 			wantStatus: 204,
 		},
 		{
+			name:       "create a meal, with its mealtimes sorted by time",
+			req:        request{method: "PUT", resource: "/holidays/{holidayId}/meals/{id}", sub: me, body: validMeal, params: mealParams(hol, newMeal)},
+			wantStatus: 200,
+			check: func(t *testing.T, f *fakeStore, body string) {
+				m := decode[model.Meal](t, body)
+				if m.ID != newMeal || m.Name != "1 Jan Dinner" || m.Slot != model.MealSlotDinner || m.RecipeID != nil ||
+					m.Version != 1 || m.UpdatedBy != me || len(m.Mealtimes) != 2 {
+					t.Fatalf("meal = %+v", m)
+				}
+				if m.Mealtimes[0].ID != mt1 || m.Mealtimes[1].ID != mt2 {
+					t.Errorf("mealtimes = %+v, want sorted by at", m.Mealtimes)
+				}
+				if !strings.Contains(body, `"recipeId":null`) || !strings.Contains(body, `"attendeeIds":[]`) || strings.Contains(body, "PK") {
+					t.Errorf("body = %s", body)
+				}
+				stored, ok := f.meal(hol, newMeal)
+				if !ok || stored.Version != 1 || stored.Type != model.TypeMeal || stored.Mealtimes[0].ID != mt1 {
+					t.Errorf("stored = %+v (%v)", stored, ok)
+				}
+			},
+		},
+		{
+			name: "update a meal, sorting equal times by mealtime ID",
+			req: request{method: "PUT", resource: "/holidays/{holidayId}/meals/{id}", sub: friend, params: mealParams(hol, meal),
+				body: `{"name":"Feast","slot":"other","recipeId":"` + recipe + `","mealtimes":[` +
+					`{"id":"` + mt3 + `","at":"2027-01-01T12:00","attendeeIds":[]},` +
+					`{"id":"` + mt2 + `","at":"2027-01-01T18:00","attendeeIds":[]},` +
+					`{"id":"` + mt1 + `","at":"2027-01-01T18:00","attendeeIds":["` + att + `"]}],"version":3}`},
+			wantStatus: 200,
+			check: func(t *testing.T, f *fakeStore, body string) {
+				m := decode[model.Meal](t, body)
+				if m.Name != "Feast" || m.Slot != model.MealSlotOther || m.RecipeID == nil || *m.RecipeID != recipe || m.Version != 4 || m.UpdatedBy != friend {
+					t.Errorf("meal = %+v", m)
+				}
+				var ids []string
+				for _, mt := range m.Mealtimes {
+					ids = append(ids, mt.ID)
+				}
+				if strings.Join(ids, ",") != mt3+","+mt1+","+mt2 {
+					t.Errorf("mealtime order = %v, want mt3, mt1, mt2", ids)
+				}
+				if stored, _ := f.meal(hol, meal); stored.Version != 4 || stored.Name != "Feast" {
+					t.Errorf("stored = %+v", stored)
+				}
+			},
+		},
+		{
+			name:       "delete a meal",
+			req:        request{method: "DELETE", resource: "/holidays/{holidayId}/{kind}/{id}", sub: me, params: map[string]string{"holidayId": hol, "kind": "meals", "id": meal}},
+			wantStatus: 204,
+			check: func(t *testing.T, f *fakeStore, _ string) {
+				if f.has(holPK, mealSK) || !f.has(holPK, attSK) {
+					t.Errorf("wrong item deleted")
+				}
+			},
+		},
+		{
+			name:       "delete a meal by its own resource",
+			req:        request{method: "DELETE", resource: "/holidays/{holidayId}/meals/{id}", sub: me, params: mealParams(hol, meal)},
+			wantStatus: 204,
+			check: func(t *testing.T, f *fakeStore, _ string) {
+				if f.has(holPK, mealSK) || !f.has(holPK, attSK) {
+					t.Errorf("wrong item deleted")
+				}
+			},
+		},
+		{
+			name:       "delete a missing meal",
+			req:        request{method: "DELETE", resource: "/holidays/{holidayId}/meals/{id}", sub: me, params: mealParams(hol, newMeal)},
+			wantStatus: 204,
+		},
+		{
 			name: "delete an attendee by its own resource",
 			req: request{method: "DELETE", resource: "/holidays/{holidayId}/attendees/{id}", sub: me,
 				params: map[string]string{"holidayId": hol, "id": att}},
@@ -351,6 +452,10 @@ func memberRoutes(holidayID string) map[string]request {
 			params: map[string]string{"holidayId": holidayID, "id": newAtt}},
 		"delete attendee": {method: "DELETE", resource: "/holidays/{holidayId}/{kind}/{id}",
 			params: map[string]string{"holidayId": holidayID, "kind": "attendees", "id": att}},
+		"put meal":    {method: "PUT", resource: "/holidays/{holidayId}/meals/{id}", body: validMeal, params: mealParams(holidayID, newMeal)},
+		"delete meal": {method: "DELETE", resource: "/holidays/{holidayId}/meals/{id}", params: mealParams(holidayID, meal)},
+		"delete meal by kind": {method: "DELETE", resource: "/holidays/{holidayId}/{kind}/{id}",
+			params: map[string]string{"holidayId": holidayID, "kind": "meals", "id": meal}},
 	}
 }
 
@@ -431,6 +536,25 @@ func TestConflicts(t *testing.T) {
 			wantCurrent: "null",
 		},
 		{
+			name:     "create an existing meal",
+			req:      request{method: "PUT", resource: "/holidays/{holidayId}/meals/{id}", sub: me, body: validMeal, params: mealParams(hol, meal)},
+			wantCode: "already-exists",
+		},
+		{
+			name: "update a meal at a stale version",
+			req: request{method: "PUT", resource: "/holidays/{holidayId}/meals/{id}", sub: me, body: mealBody("version", "2"),
+				params: mealParams(hol, meal)},
+			wantCode:    "version-conflict",
+			wantCurrent: `"version":3`,
+		},
+		{
+			name: "update a deleted meal",
+			req: request{method: "PUT", resource: "/holidays/{holidayId}/meals/{id}", sub: me, body: mealBody("version", "1"),
+				params: mealParams(hol, newMeal)},
+			wantCode:    "version-conflict",
+			wantCurrent: "null",
+		},
+		{
 			name: "remove the last member (yourself)",
 			req: request{method: "DELETE", resource: "/holidays/{holidayId}/members/{userSub}", sub: me,
 				params: map[string]string{"holidayId": hol2, "userSub": me}},
@@ -486,6 +610,9 @@ func TestValidation(t *testing.T) {
 		return request{method: "PUT", resource: "/holidays/{holidayId}/attendees/{id}", body: body, sub: me,
 			params: map[string]string{"holidayId": hol, "id": id}}
 	}
+	putMeal := func(id, body string) request {
+		return request{method: "PUT", resource: "/holidays/{holidayId}/meals/{id}", body: body, sub: me, params: mealParams(hol, id)}
+	}
 	tests := []struct {
 		name string
 		req  request
@@ -518,11 +645,28 @@ func TestValidation(t *testing.T) {
 		{name: "attendee: negative version", req: putAttendee(newAtt, `{"name":"A","version":-2}`)},
 		{name: "attendee: not JSON", req: putAttendee(newAtt, `[]`)},
 		{name: "delete: unsupported kind", req: request{method: "DELETE", resource: "/holidays/{holidayId}/{kind}/{id}", sub: me,
-			params: map[string]string{"holidayId": hol, "kind": "meals", "id": att}}},
+			params: map[string]string{"holidayId": hol, "kind": "trips", "id": att}}},
 		{name: "delete: unknown kind", req: request{method: "DELETE", resource: "/holidays/{holidayId}/{kind}/{id}", sub: me,
 			params: map[string]string{"holidayId": hol, "kind": "members", "id": att}}},
 		{name: "delete: bad id", req: request{method: "DELETE", resource: "/holidays/{holidayId}/{kind}/{id}", sub: me,
 			params: map[string]string{"holidayId": hol, "kind": "attendees", "id": badID}}},
+		{name: "delete meal: bad id", req: request{method: "DELETE", resource: "/holidays/{holidayId}/meals/{id}", sub: me, params: mealParams(hol, badID)}},
+		{name: "meal: bad id", req: putMeal(badID, validMeal)},
+		{name: "meal: bad holiday id", req: request{method: "PUT", resource: "/holidays/{holidayId}/meals/{id}", body: validMeal, sub: me, params: mealParams(badID, newMeal)}},
+		{name: "meal: not JSON", req: putMeal(newMeal, `{"name":`)},
+		{name: "meal: empty name", req: putMeal(newMeal, mealBody("name", `""`))},
+		{name: "meal: long name", req: putMeal(newMeal, mealBody("name", `"`+strings.Repeat("x", 101)+`"`))},
+		{name: "meal: unknown slot", req: putMeal(newMeal, mealBody("slot", `"brunch"`))},
+		{name: "meal: bad recipe id", req: putMeal(newMeal, mealBody("recipeId", `"pancakes"`))},
+		{name: "meal: no mealtimes", req: putMeal(newMeal, mealBody("mealtimes", `[]`))},
+		{name: "meal: duplicate mealtime ids", req: putMeal(newMeal, mealBody("mealtimes",
+			`[{"id":"`+mt1+`","at":"2027-01-01T18:00","attendeeIds":[]},{"id":"`+mt1+`","at":"2027-01-02T18:00","attendeeIds":[]}]`))},
+		{name: "meal: impossible time", req: putMeal(newMeal, mealBody("mealtimes", `[{"id":"`+mt1+`","at":"2026-02-30T10:00","attendeeIds":[]}]`))},
+		{name: "meal: hour 24", req: putMeal(newMeal, mealBody("mealtimes", `[{"id":"`+mt1+`","at":"2027-01-01T24:00","attendeeIds":[]}]`))},
+		{name: "meal: duplicate attendee", req: putMeal(newMeal, mealBody("mealtimes",
+			`[{"id":"`+mt1+`","at":"2027-01-01T18:00","attendeeIds":["`+att+`","`+att+`"]}]`))},
+		{name: "meal: bad attendee id", req: putMeal(newMeal, mealBody("mealtimes", `[{"id":"`+mt1+`","at":"2027-01-01T18:00","attendeeIds":["sam"]}]`))},
+		{name: "meal: negative version", req: putMeal(newMeal, mealBody("version", `-1`))},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

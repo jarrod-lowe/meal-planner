@@ -140,4 +140,4 @@ picker), §10 (component tests); ARCHITECTURE "Helpfulness".
       editor, desktop and Pixel 7.
 - [x] **18. Verify in test (human).** The agent runs `make deploy-test` and
       `make seed-test`; the human checks the "You can" list.
-- [ ] **19. PR and review.** Open the PR; Codex loop.
+- [x] **19. PR and review.** Open the PR; Codex loop.
