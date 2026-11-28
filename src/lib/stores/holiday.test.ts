@@ -739,3 +739,86 @@ describe('withRetry', () => {
     expect(call).toHaveBeenCalledOnce();
   });
 });
+
+describe('HolidayStore.mutate with meals', () => {
+  const mealId = '0190a0b0-0000-7000-8000-0000000000c1';
+  const mealPath = `/holidays/${holidayId}/meals/${mealId}`;
+  const fields = {
+    name: '1 Jan Dinner',
+    slot: 'dinner' as const,
+    recipeId: null,
+    mealtimes: [
+      { id: '0190a0b0-0000-7000-8000-0000000000d1', at: '2027-01-01T18:30', attendeeIds: [annId] }
+    ]
+  };
+  const storedMeal = (version: number, name = fields.name) => ({
+    ...fields,
+    name,
+    id: mealId,
+    version,
+    ...meta
+  });
+
+  it('creates a meal with version 0, then keeps the stored copy', async () => {
+    const { store, reply, requests } = await loaded();
+    reply(`PUT ${mealPath}`, json(200, storedMeal(1)));
+
+    const result = store.mutate({ kind: 'meals', id: mealId, fields });
+    expect(store.facts?.meals.map((m) => [m.name, m.version])).toEqual([['1 Jan Dinner', 0]]);
+
+    await expect(result).resolves.toEqual({ outcome: 'saved' });
+    expect(requests[1]).toEqual({ method: 'PUT', path: mealPath, body: { ...fields, version: 0 } });
+    expect(store.facts?.meals).toEqual([storedMeal(1)]);
+  });
+
+  it('updates a meal at its version', async () => {
+    const { store, reply, requests } = await loaded();
+    reply(`PUT ${mealPath}`, json(200, storedMeal(1)), json(200, storedMeal(2, 'Feast')));
+    await store.mutate({ kind: 'meals', id: mealId, fields });
+
+    await store.mutate({ kind: 'meals', id: mealId, fields: { ...fields, name: 'Feast' } });
+
+    expect(requests[2]?.body).toEqual({ ...fields, name: 'Feast', version: 1 });
+    expect(store.facts?.meals).toEqual([storedMeal(2, 'Feast')]);
+  });
+
+  it('sends the expected version as given, so a stale copy conflicts', async () => {
+    const env = setup();
+    env.reply(`GET /holidays/${holidayId}`, json(200, { ...facts(), meals: [storedMeal(3)] }));
+    await env.store.load(holidayId);
+    const current = storedMeal(3, 'Someone else’s');
+    env.reply(
+      `PUT ${mealPath}`,
+      json(409, { error: { code: 'version-conflict', message: 'x' }, current })
+    );
+
+    const result = await env.store.mutate({
+      kind: 'meals',
+      id: mealId,
+      fields: { ...fields, name: 'Mine' },
+      expectedVersion: 2
+    });
+
+    expect(result).toEqual({ outcome: 'conflict' });
+    expect(env.requests[1]?.body).toEqual({ ...fields, name: 'Mine', version: 2 });
+    expect(env.store.facts?.meals).toEqual([current]);
+    expect(env.toasts.items[0]?.message).toBe(t('mutate.conflict', { item: 'Mine' }));
+  });
+
+  it('deletes a meal optimistically', async () => {
+    const env = setup();
+    env.reply(`GET /holidays/${holidayId}`, json(200, { ...facts(), meals: [storedMeal(1)] }));
+    await env.store.load(holidayId);
+    env.reply(`DELETE ${mealPath}`, new Response(null, { status: 204 }));
+
+    const result = env.store.mutate({ kind: 'meals', id: mealId, remove: true });
+    expect(env.store.facts?.meals).toEqual([]);
+
+    await expect(result).resolves.toEqual({ outcome: 'saved' });
+    expect(env.requests[1]).toMatchObject({ method: 'DELETE', path: mealPath });
+  });
+
+  it('names a meal by a generic label when it has no name', () => {
+    expect(t('mutate.items.meals')).toBe('a meal');
+  });
+});

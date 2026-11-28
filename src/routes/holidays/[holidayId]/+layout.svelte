@@ -7,9 +7,13 @@
   let { children }: { children: Snippet } = $props();
 
   const holidayId = $derived(page.params.holidayId ?? '');
-  const current = $derived<HolidaySection>(
-    page.route.id?.endsWith('/people') ? 'people' : 'overview'
-  );
+  /** The meal editor is part of Plan. */
+  const current = $derived.by<HolidaySection>(() => {
+    const route = page.route.id ?? '';
+    if (route.endsWith('/people')) return 'people';
+    if (route.endsWith('/plan') || route.includes('/meals/')) return 'plan';
+    return 'overview';
+  });
 </script>
 
 <HolidayFrame {holidayId} {current}>

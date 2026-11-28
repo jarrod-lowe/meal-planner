@@ -8,6 +8,7 @@
   /** The sections built so far; the rest come with later phases. */
   const hrefs = $derived<Partial<Record<HolidaySection, string>>>({
     overview: resolve('/holidays/[holidayId]', { holidayId }),
+    plan: resolve('/holidays/[holidayId]/plan', { holidayId }),
     people: resolve('/holidays/[holidayId]/people', { holidayId })
   });
 </script>

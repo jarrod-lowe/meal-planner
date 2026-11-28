@@ -21,8 +21,8 @@
     /** Keep the label for assistive technology only. */
     labelHidden?: boolean;
     onselect: (recipe: Recipe) => void;
-    /** The user chose *Create new recipe*, with what they typed (trimmed). */
-    oncreate: (query: string) => void;
+    /** The user chose *Create new recipe*, with what they typed (trimmed). Without it, there's no such option. */
+    oncreate?: (query: string) => void;
   } = $props();
 
   const uid = $props.id();
@@ -37,7 +37,7 @@
     query.trim() === '' ? [] : searchRecipes(store.recipes, query, { limit: 8 })
   );
   /** The matches, then the create option. */
-  const count = $derived(query.trim() === '' ? 0 : matches.length + 1);
+  const count = $derived(query.trim() === '' ? 0 : matches.length + (oncreate ? 1 : 0));
 
   const box = new Combobox(() => count, choose);
   const expanded = $derived(box.open && count > 0);
@@ -59,7 +59,7 @@
     query = '';
     box.close();
     if (recipe) onselect(recipe);
-    else oncreate(text);
+    else oncreate?.(text);
   }
 </script>
 
@@ -102,7 +102,7 @@
           {t('recipePicker.option', { name: recipe.name, servings: recipe.servings })}
         </div>
       {/each}
-      {#if count > 0}
+      {#if oncreate && count > 0}
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_interactive_supports_focus -->
         <div
           role="option"

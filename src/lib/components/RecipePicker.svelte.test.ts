@@ -11,11 +11,16 @@ const pancakes = recipe('Pancakes', { servings: 4 });
 const pasta = recipe('Pasta bake', { servings: 6 });
 const gruel = recipe('Gruel', { deleted: true });
 
-async function setup() {
+async function setup({ creates = true } = {}) {
   const env = await loadedCatalogue({ recipes: [pancakes, pasta, gruel] });
   const onselect = vi.fn<(recipe: Recipe) => void>();
   const oncreate = vi.fn<(query: string) => void>();
-  render(RecipePicker, { store: env.store, label, onselect, oncreate });
+  render(RecipePicker, {
+    store: env.store,
+    label,
+    onselect,
+    oncreate: creates ? oncreate : undefined
+  });
   const input = screen.getByRole('combobox', { name: label });
   return { ...env, onselect, oncreate, input, user: userEvent.setup() };
 }
@@ -82,5 +87,19 @@ describe('RecipePicker', () => {
 
     expect(oncreate).toHaveBeenCalledWith('Lasagne');
     expect(onselect).not.toHaveBeenCalled();
+  });
+});
+
+describe('RecipePicker without oncreate', () => {
+  it('offers only the matches, and no options when nothing matches', async () => {
+    const { input, user } = await setup({ creates: false });
+
+    await user.type(input, 'pancaks');
+    const texts = options().map((option) => option.textContent?.trim());
+    expect(texts).toEqual([t('recipePicker.option', { name: 'Pancakes', servings: 4 })]);
+
+    await user.clear(input);
+    await user.type(input, 'zzzz');
+    expect(input.getAttribute('aria-expanded')).toBe('false');
   });
 });

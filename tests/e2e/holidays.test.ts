@@ -66,7 +66,11 @@ test('creating a holiday lands on its overview', async ({ page, api }) => {
     'aria-current',
     'page'
   );
-  await expect(nav.getByRole('link', { name: new RegExp(en.holiday.nav.plan) })).toHaveAttribute(
+  await expect(nav.getByRole('link', { name: en.holiday.nav.plan })).toHaveAttribute(
+    'href',
+    /\/plan$/
+  );
+  await expect(nav.getByRole('link', { name: new RegExp(en.holiday.nav.trips) })).toHaveAttribute(
     'aria-disabled',
     'true'
   );

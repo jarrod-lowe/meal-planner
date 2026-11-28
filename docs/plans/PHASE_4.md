@@ -111,21 +111,21 @@ references: DESIGN §1, §2.1 (`MEAL_SLOTS`, `SLOT_DEFAULT_TIMES`), §2.2
 
 ## PR 4.2: Planner and meal editor
 
-- [ ] **9. `now` and `plan` stores.** `now.svelte.ts` (holiday-local, ticks
+- [x] **9. `now` and `plan` stores.** `now.svelte.ts` (holiday-local, ticks
       each minute, injectable clock) and `plan.svelte.ts` (`$derived` from
       the holiday and catalogue stores and `now`). The holiday layout also
       loads the catalogue. `mutate()` gains the `meals` kind.
   - Tests first: `now` in another time zone and across midnight; the plan
     re-derives when facts change; meal create, update, delete and conflict
     through `mutate()`.
-- [ ] **10. Planner grid.** `/holidays/[holidayId]/plan`: days × slots,
+- [x] **10. Planner grid.** `/holidays/[holidayId]/plan`: days × slots,
       chips, parallel meals side by side, **+** on empty cells (and beside
       existing meals, for Dinner B), the phone list layout, keyboard
       navigation; Plan enabled in the holiday navigation.
   - Tests first: component tests for rows and columns from the dates,
     parallel meals, *No recipe yet*, servings, the **+** link's prefill, and
     the phone layout.
-- [ ] **11. Meal editor.** `/holidays/[holidayId]/meals/[mealId]` (`new`
+- [x] **11. Meal editor.** `/holidays/[holidayId]/meals/[mealId]` (`new`
       creates, prefilled from the query): the fields above, the live
       preview, save as one `PUT`, delete with a confirm, and the base-version
       rule from phase 3 (a stale save conflicts, with **Load latest**).
@@ -147,7 +147,7 @@ references: DESIGN §1, §2.1 (`MEAL_SLOTS`, `SLOT_DEFAULT_TIMES`), §2.2
       without a recipe shows on Overview with a working link; create a
       recipe from the meal editor and return. Axe on the planner, the
       editor and Overview, desktop and Pixel 7.
-- [ ] **16. Seed.** `make seed-test` adds a few meals to the sample holiday,
+- [x] **16. Seed.** `make seed-test` adds a few meals to the sample holiday,
       using the seeded recipes.
 - [ ] **17. Verify in test (human).** The agent runs `make deploy-test` and
       `make seed-test`; the human checks the "You can" list.

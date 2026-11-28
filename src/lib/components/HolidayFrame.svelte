@@ -3,7 +3,10 @@
   import { resolve } from '$app/paths';
   import { ApiError } from '#lib/api/client.js';
   import { t } from '#lib/i18n/en.js';
+  import { catalogue as appCatalogue, type CatalogueStore } from '#lib/stores/catalogue.svelte.js';
   import { holiday as appHoliday, type HolidayStore } from '#lib/stores/holiday.svelte.js';
+  import { now as appNow, type NowStore } from '#lib/stores/now.svelte.js';
+  import CatalogueGate from './CatalogueGate.svelte';
   import type { HolidaySection } from './holiday-sections.js';
   import HolidayNav from './HolidayNav.svelte';
 
@@ -11,12 +14,16 @@
     holidayId,
     current,
     children,
-    store = appHoliday
+    store = appHoliday,
+    catalogue = appCatalogue,
+    now = appNow
   }: {
     holidayId: string;
     current: HolidaySection;
     children: Snippet;
     store?: HolidayStore;
+    catalogue?: CatalogueStore;
+    now?: NowStore;
   } = $props();
 
   let refreshing = $state(false);
@@ -30,6 +37,9 @@
 
   // Refetch on window focus, at most every 30 s (DESIGN §7.3).
   $effect(() => store.attachFocusRefetch());
+
+  // Holiday-local now ticks while a holiday is open, for the plan.
+  $effect(() => now.start());
 
   /** Only the open holiday's facts: never the previous one's, mid-switch. */
   const facts = $derived(store.facts?.holiday.id === holidayId ? store.facts : null);
@@ -46,7 +56,7 @@
     if (refreshing) return;
     refreshing = true;
     try {
-      await store.refresh();
+      await Promise.all([store.refresh(), catalogue.refresh()]);
     } finally {
       refreshing = false;
     }
@@ -71,7 +81,10 @@
     </section>
     <HolidayNav {holidayId} {current} />
     <div class="content">
-      {@render children()}
+      <!-- The catalogue as well as the holiday (§7.2), so the plan can resolve recipes. -->
+      <CatalogueGate store={catalogue}>
+        {@render children()}
+      </CatalogueGate>
     </div>
   </div>
 {:else if problem}
