@@ -493,6 +493,158 @@ describe('HolidayStore.mutate', () => {
     expect(store.facts).toEqual(other);
   });
 
+  describe('on the same item, one write at a time', () => {
+    const offline = () => new TypeError('offline');
+
+    it('sends a delete only after an earlier PUT settles, and keeps the item deleted', async () => {
+      const { store, reply, requests } = await loaded();
+      const pending = deferred();
+      reply(`PUT ${attendeePath(annId)}`, pending.promise);
+      reply(`DELETE ${attendeePath(annId)}`, new Response(null, { status: 204 }));
+
+      const renaming = store.mutate({ kind: 'attendees', id: annId, fields: { name: 'Annie' } });
+      const removing = store.mutate({ kind: 'attendees', id: annId, remove: true });
+      expect(store.facts?.attendees).toEqual([]);
+      await vi.waitFor(() => expect(requests).toHaveLength(2));
+      await Promise.resolve();
+      expect(requests.map((r) => r.method)).toEqual(['GET', 'PUT']);
+
+      pending.resolve(json(200, { id: annId, name: 'Annie', version: 3, ...meta }));
+      await expect(renaming).resolves.toEqual({ outcome: 'saved' });
+      expect(store.facts?.attendees).toEqual([]);
+      await expect(removing).resolves.toEqual({ outcome: 'saved' });
+
+      expect(requests.map((r) => r.method)).toEqual(['GET', 'PUT', 'DELETE']);
+      expect(store.facts?.attendees).toEqual([]);
+    });
+
+    it('sends a rename after a create with the created version', async () => {
+      const { store, reply, requests } = await loaded();
+      const pending = deferred();
+      const renamed = { id: newId, name: 'Bobby', version: 2, ...meta };
+      reply(`PUT ${attendeePath(newId)}`, pending.promise, json(200, renamed));
+
+      const creating = store.mutate({ kind: 'attendees', id: newId, fields: { name: 'Bob' } });
+      const renaming = store.mutate({ kind: 'attendees', id: newId, fields: { name: 'Bobby' } });
+      expect(store.facts?.attendees.at(-1)?.name).toBe('Bobby');
+      await vi.waitFor(() => expect(requests).toHaveLength(2));
+
+      pending.resolve(json(200, { id: newId, name: 'Bob', version: 1, ...meta }));
+      await expect(creating).resolves.toEqual({ outcome: 'saved' });
+      expect(store.facts?.attendees.at(-1)?.name).toBe('Bobby');
+      await expect(renaming).resolves.toEqual({ outcome: 'saved' });
+
+      expect(requests.slice(1).map((r) => r.body)).toEqual([
+        { name: 'Bob', version: 0 },
+        { name: 'Bobby', version: 1 }
+      ]);
+      expect(store.facts?.attendees).toEqual([...facts().attendees, renamed]);
+    });
+
+    it('drops a queued rename and delete when the create fails', async () => {
+      const { store, reply, requests, toasts } = await loaded();
+      reply(`PUT ${attendeePath(newId)}`, offline(), offline(), offline(), offline());
+
+      const creating = store.mutate({ kind: 'attendees', id: newId, fields: { name: 'Bob' } });
+      const renaming = store.mutate({ kind: 'attendees', id: newId, fields: { name: 'Bobby' } });
+      const removing = store.mutate({ kind: 'attendees', id: newId, remove: true });
+
+      await expect(creating).resolves.toMatchObject({ outcome: 'failed' });
+      await expect(renaming).resolves.toMatchObject({ outcome: 'failed' });
+      await expect(removing).resolves.toEqual({ outcome: 'saved' });
+      expect(requests.filter((r) => r.method !== 'GET')).toHaveLength(4);
+      expect(store.facts?.attendees).toEqual(facts().attendees);
+      expect(toasts.items.map((toast) => toast.message)).toEqual([
+        t('mutate.failed', { item: 'Bob' })
+      ]);
+    });
+
+    it('drops queued writes after a conflict, keeping the current item', async () => {
+      const { store, reply, requests } = await loaded();
+      const current = { id: annId, name: 'Anna', version: 5, ...meta };
+      reply(
+        `PUT ${attendeePath(annId)}`,
+        json(409, { error: { code: 'version-conflict', message: 'x' }, current })
+      );
+
+      const first = store.mutate({ kind: 'attendees', id: annId, fields: { name: 'Annie' } });
+      const second = store.mutate({ kind: 'attendees', id: annId, fields: { name: 'Ann B' } });
+
+      await expect(first).resolves.toEqual({ outcome: 'conflict' });
+      await expect(second).resolves.toEqual({ outcome: 'conflict' });
+      expect(requests.filter((r) => r.method === 'PUT')).toHaveLength(1);
+      expect(store.facts?.attendees).toEqual([current]);
+    });
+
+    it('still writes different items at the same time', async () => {
+      const { store, reply, requests } = await loaded();
+      const ann = deferred();
+      const bob = deferred();
+      reply(`PUT ${attendeePath(annId)}`, ann.promise);
+      reply(`PUT ${attendeePath(newId)}`, bob.promise);
+
+      const renaming = store.mutate({ kind: 'attendees', id: annId, fields: { name: 'Annie' } });
+      const creating = store.mutate({ kind: 'attendees', id: newId, fields: { name: 'Bob' } });
+      await vi.waitFor(() => expect(requests).toHaveLength(3));
+
+      bob.resolve(json(200, { id: newId, name: 'Bob', version: 1, ...meta }));
+      ann.resolve(json(200, { id: annId, name: 'Annie', version: 3, ...meta }));
+      await expect(renaming).resolves.toEqual({ outcome: 'saved' });
+      await expect(creating).resolves.toEqual({ outcome: 'saved' });
+    });
+  });
+
+  describe('with a refresh in flight', () => {
+    it('keeps a create that lands while a stale refresh is in flight', async () => {
+      const { store, reply } = await loaded();
+      const slow = deferred();
+      reply(`GET /holidays/${holidayId}`, slow.promise);
+      const bob = { id: newId, name: 'Bob', version: 1, ...meta };
+      reply(`PUT ${attendeePath(newId)}`, json(200, bob));
+
+      const refreshing = store.refresh();
+      await store.mutate({ kind: 'attendees', id: newId, fields: { name: 'Bob' } });
+      const old = facts();
+      old.holiday.name = 'Winter';
+      slow.resolve(json(200, old));
+      await refreshing;
+
+      expect(store.facts?.attendees).toEqual([...facts().attendees, bob]);
+      // Items nobody wrote meanwhile still take the fetched copy.
+      expect(store.facts?.holiday.name).toBe('Winter');
+    });
+
+    it('keeps a delete that lands while a stale refresh is in flight', async () => {
+      const { store, reply } = await loaded();
+      const slow = deferred();
+      reply(`GET /holidays/${holidayId}`, slow.promise);
+      reply(`DELETE ${attendeePath(annId)}`, new Response(null, { status: 204 }));
+
+      const refreshing = store.refresh();
+      await store.mutate({ kind: 'attendees', id: annId, remove: true });
+      slow.resolve(json(200, facts()));
+      await refreshing;
+
+      expect(store.facts?.attendees).toEqual([]);
+    });
+
+    it('keeps an optimistic change still in flight when a refresh returns', async () => {
+      const { store, reply } = await loaded();
+      const pending = deferred();
+      reply(`PUT ${attendeePath(annId)}`, pending.promise);
+      reply(`GET /holidays/${holidayId}`, json(200, facts()));
+
+      const renaming = store.mutate({ kind: 'attendees', id: annId, fields: { name: 'Annie' } });
+      await store.refresh();
+      expect(store.facts?.attendees[0]?.name).toBe('Annie');
+
+      const stored = { id: annId, name: 'Annie', version: 3, ...meta };
+      pending.resolve(json(200, stored));
+      await renaming;
+      expect(store.facts?.attendees).toEqual([stored]);
+    });
+  });
+
   it('refuses to mutate with no holiday loaded', async () => {
     const { store } = setup();
 
