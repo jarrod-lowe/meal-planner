@@ -60,30 +60,30 @@ picker), §10 (component tests); ARCHITECTURE "Helpfulness".
 
 ## PR 3.1: Catalogue API
 
-- [ ] **1. Model and validation.** `Recipe`, `RecipeLine`, `Ingredient`,
+- [x] **1. Model and validation.** `Recipe`, `RecipeLine`, `Ingredient`,
       `Catalogue` and the inputs in `backend/internal/model`, with storage
       keys per §4; the checks above in `backend/internal/validate`.
   - Tests first: table-driven validation at each boundary, including a
     repeated ingredient, the enum, and 200 vs 201 lines.
-- [ ] **2. Store.** Catalogue load (paginated query of `CATALOGUE`) and soft
+- [x] **2. Store.** Catalogue load (paginated query of `CATALOGUE`) and soft
       delete (get, put `deleted: true` with a version condition, retried on a
       conflict, `ErrNotFound` if missing).
   - Tests first, against DynamoDB Local: load across pages with hidden items,
     soft delete bumping the version, deleting twice, deleting a missing item,
     and a delete racing an update.
-- [ ] **3. Catalogue Lambda.** `backend/cmd/catalogue`: `GET /catalogue`,
+- [x] **3. Catalogue Lambda.** `backend/cmd/catalogue`: `GET /catalogue`,
       `PUT /catalogue/recipes/{id}`, `PUT /catalogue/ingredients/{id}`,
       `DELETE /catalogue/{kind}/{id}` (`kind` is `recipes` or
       `ingredients`), with the same logging and error mapping as `holidays`.
   - Tests first, with a fake store: each route, create, update, conflict,
     `already-exists`, each validation failure, an unknown kind, and `500`
     without details.
-- [ ] **4. OpenAPI.** The routes and schemas (`Recipe`, `RecipeInput`,
+- [x] **4. OpenAPI.** The routes and schemas (`Recipe`, `RecipeInput`,
       `Ingredient`, `IngredientInput`, `Catalogue`, the `ShopSection` enum)
       with §5.2's limits; `make api-types`. Static `recipes` and
       `ingredients` segments each get their own `DELETE`, as attendees did.
   - Tests first: the route test requires every new route and method.
-- [ ] **5. Terraform.** The `catalogue` function through the `lambda`
+- [x] **5. Terraform.** The `catalogue` function through the `lambda`
       module, with its policy and `TABLE_NAME`; add it to `LAMBDAS` and the
       function-name output.
   - Tests first: the function's settings and IAM actions and resources.

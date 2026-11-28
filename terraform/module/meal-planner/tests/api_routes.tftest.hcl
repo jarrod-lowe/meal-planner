@@ -46,6 +46,14 @@ override_resource {
   }
 }
 
+override_resource {
+  target          = module.catalogue.aws_lambda_function.this
+  override_during = plan
+  values = {
+    invoke_arn = "arn:aws:apigateway:ap-southeast-2:lambda:path/2015-03-31/functions/catalogue/invocations"
+  }
+}
+
 variables {
   environment = "test"
   domain      = "wildsea.lowe.kiwi"
@@ -55,7 +63,7 @@ variables {
 run "every_route_is_signed_in_and_proxied_to_its_lambda" {
   command = plan
 
-  # [path, method, lambda] for each route in this phase.
+  # [path, method, lambda] for each route built so far.
   assert {
     condition = [
       for r in [
@@ -71,10 +79,18 @@ run "every_route_is_signed_in_and_proxied_to_its_lambda" {
         ["/holidays/{holidayId}/attendees/{id}", "delete", "holidays"],
         ["/holidays/{holidayId}/{kind}/{id}", "delete", "holidays"],
         ["/users", "get", "users"],
+        ["/catalogue", "get", "catalogue"],
+        ["/catalogue/recipes/{id}", "put", "catalogue"],
+        ["/catalogue/ingredients/{id}", "put", "catalogue"],
+        # Needed as well as the generic route: API Gateway prefers the static
+        # recipes and ingredients segments over {kind}.
+        ["/catalogue/recipes/{id}", "delete", "catalogue"],
+        ["/catalogue/ingredients/{id}", "delete", "catalogue"],
+        ["/catalogue/{kind}/{id}", "delete", "catalogue"],
       ] : "${upper(r[1])} ${r[0]}"
       if !can(yamldecode(aws_api_gateway_rest_api.api.body).paths[r[0]][r[1]])
     ] == []
-    error_message = "Every phase 2 route must be in the OpenAPI body"
+    error_message = "Every route built so far must be in the OpenAPI body"
   }
 
   assert {
@@ -93,12 +109,12 @@ run "every_route_is_signed_in_and_proxied_to_its_lambda" {
         for method, op in ops : (
           op["x-amazon-apigateway-integration"].type == "aws_proxy" &&
           op["x-amazon-apigateway-integration"].httpMethod == "POST" &&
-          op["x-amazon-apigateway-integration"].uri == "arn:aws:apigateway:ap-southeast-2:lambda:path/2015-03-31/functions/${path == "/users" ? "users" : "holidays"}/invocations"
+          op["x-amazon-apigateway-integration"].uri == "arn:aws:apigateway:ap-southeast-2:lambda:path/2015-03-31/functions/${path == "/users" ? "users" : startswith(path, "/catalogue") ? "catalogue" : "holidays"}/invocations"
         )
         if method != "parameters"
       ] if path != "/health"
     ]))
-    error_message = "Every route but /health must be an aws_proxy POST to its Lambda (/users to users, the rest to holidays)"
+    error_message = "Every route but /health must be an aws_proxy POST to its Lambda (/users to users, /catalogue to catalogue, the rest to holidays)"
   }
 
   assert {
@@ -124,7 +140,8 @@ run "lambdas_may_be_invoked_only_by_this_api" {
   }
 
   assert {
-    condition = [module.holidays.api_source_arn, module.users.api_source_arn] == [
+    condition = [module.holidays.api_source_arn, module.users.api_source_arn, module.catalogue.api_source_arn] == [
+      "arn:aws:execute-api:ap-southeast-2:123456789012:abc123/*/*",
       "arn:aws:execute-api:ap-southeast-2:123456789012:abc123/*/*",
       "arn:aws:execute-api:ap-southeast-2:123456789012:abc123/*/*",
     ]
@@ -148,5 +165,40 @@ run "version_conflict_current_may_be_null_in_draft_04" {
   assert {
     condition     = local.openapi.components.schemas.VersionConflictError.properties.current.nullable == true
     error_message = "openapi.yaml must mark VersionConflictError.current nullable, so the generated type allows null"
+  }
+}
+
+run "catalogue_schemas_keep_section_order_and_positive_quantities" {
+  command = plan
+
+  # DESIGN §2.1: the enum's order is the order sections appear on a list.
+  assert {
+    condition = yamldecode(aws_api_gateway_rest_api.api.body).components.schemas.ShopSection.enum == [
+      "produce", "bakery", "meat-fish", "dairy", "frozen",
+      "pantry", "drinks", "household", "other",
+    ]
+    error_message = "ShopSection must list DESIGN §2.1's sections, in order"
+  }
+
+  # Draft-04 (API Gateway) and OpenAPI 3.0 (openapi-typescript) both spell
+  # "> 0" as a minimum with a boolean exclusiveMinimum.
+  assert {
+    condition = yamldecode(aws_api_gateway_rest_api.api.body).components.schemas.PositiveNumber == {
+      type             = "number"
+      minimum          = 0
+      exclusiveMinimum = true
+    }
+    error_message = "PositiveNumber must be a number > 0, in draft-04 terms"
+  }
+
+  assert {
+    condition = [
+      for s in [
+        yamldecode(aws_api_gateway_rest_api.api.body).components.schemas.RecipeLine.properties.quantity,
+        yamldecode(aws_api_gateway_rest_api.api.body).components.schemas.Recipe.properties.servings,
+        yamldecode(aws_api_gateway_rest_api.api.body).components.schemas.RecipeInput.properties.servings,
+      ] : s["$ref"]
+    ] == [for i in range(3) : "#/components/schemas/PositiveNumber"]
+    error_message = "Recipe servings and line quantities must be PositiveNumbers"
   }
 }

@@ -251,7 +251,7 @@ seed-test: $(if $(EMAIL),terraform/environment/test/output.json)
 
 # One per backend/cmd directory. Terraform creates each function from a
 # placeholder; these targets replace its code (DESIGN §9).
-LAMBDAS := holidays users
+LAMBDAS := holidays users catalogue
 LAMBDA_ARCHIVES := $(addprefix dist/archives/,$(addsuffix .zip,$(LAMBDAS)))
 
 # Every Lambda rebuilds when the shared packages or the module change.

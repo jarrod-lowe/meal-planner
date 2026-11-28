@@ -4,8 +4,9 @@
 
 locals {
   lambda_environment = {
-    holidays = { TABLE_NAME = aws_dynamodb_table.data.name }
-    users    = { USER_POOL_ID = aws_cognito_user_pool.users.id }
+    holidays  = { TABLE_NAME = aws_dynamodb_table.data.name }
+    users     = { USER_POOL_ID = aws_cognito_user_pool.users.id }
+    catalogue = { TABLE_NAME = aws_dynamodb_table.data.name }
   }
 }
 
@@ -59,6 +60,28 @@ module "users" {
       Effect   = "Allow"
       Action   = ["cognito-idp:ListUsers"]
       Resource = aws_cognito_user_pool.users.arn
+    }]
+  })
+}
+
+module "catalogue" {
+  source = "../lambda"
+
+  name                  = "${local.resource_prefix}-catalogue"
+  environment_variables = local.lambda_environment.catalogue
+  api_execution_arn     = aws_api_gateway_rest_api.api.execution_arn
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "Table"
+      Effect = "Allow"
+      Action = [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:Query",
+      ]
+      Resource = aws_dynamodb_table.data.arn
     }]
   })
 }
