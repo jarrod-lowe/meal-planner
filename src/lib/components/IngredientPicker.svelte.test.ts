@@ -4,7 +4,14 @@ import { describe, expect, it, vi } from 'vitest';
 import type { CommonIngredient } from '#lib/catalogue/search.js';
 import { t } from '#lib/i18n/en.js';
 import type { Ingredient } from '#lib/stores/catalogue.svelte.js';
-import { ingredient, loadedCatalogue, stored, uuidV7 } from '#lib/test/catalogue.js';
+import {
+  apiError,
+  ingredient,
+  json,
+  loadedCatalogue,
+  stored,
+  uuidV7
+} from '#lib/test/catalogue.js';
 import IngredientPicker from './IngredientPicker.svelte';
 
 const label = 'Ingredient';
@@ -244,6 +251,59 @@ describe('IngredientPicker', () => {
     ]);
     expect(writes()[0]?.body).toMatchObject({ deleted: false, version: 1 });
     expect(onselect).toHaveBeenCalledWith(expect.objectContaining({ id: oldSpice.id }));
+  });
+
+  async function showHiddenDuplicate(env: Awaited<ReturnType<typeof setup>>) {
+    const { input, user } = env;
+    await user.type(input, 'Old spice');
+    await user.click(
+      screen.getByRole('option', { name: t('picker.create', { query: 'Old spice' }) })
+    );
+    await user.type(screen.getByLabelText(t('ingredientForm.unit')), 'jar{Enter}');
+    await user.click(screen.getByRole('button', { name: t('ingredientForm.showAndUse') }));
+  }
+
+  it('keeps the form open when showing the hidden duplicate fails', async () => {
+    const env = await setup();
+    env.reply('PUT', apiError(400, 'invalid', 'Nope'));
+
+    await showHiddenDuplicate(env);
+
+    expect(env.onselect).not.toHaveBeenCalled();
+    expect(env.toasts.items).toHaveLength(1);
+    expect(screen.getByRole('form', { name: t('picker.newIngredient') })).toBeTruthy();
+    expect(screen.getByRole('button', { name: t('ingredientForm.showAndUse') })).toBeTruthy();
+    expect(env.store.ingredients.find((item) => item.id === oldSpice.id)?.deleted).toBe(true);
+  });
+
+  it('keeps the form open when showing the hidden duplicate conflicts', async () => {
+    const env = await setup();
+    // Someone else edited it, and it's still hidden.
+    const current = { ...oldSpice, shopSection: 'pantry' as const, version: 2 };
+    env.reply('PUT', apiError(409, 'version-conflict', 'conflict', current));
+
+    await showHiddenDuplicate(env);
+
+    expect(env.onselect).not.toHaveBeenCalled();
+    expect(env.toasts.items[0]?.message).toBe(t('mutate.conflict', { item: 'Old spice' }));
+    expect(screen.getByRole('form', { name: t('picker.newIngredient') })).toBeTruthy();
+  });
+
+  it('marks Show it again busy while the show is pending', async () => {
+    const env = await setup();
+    let answer: (response: Response) => void = () => undefined;
+    env.reply('PUT', new Promise<Response>((resolve) => (answer = resolve)));
+
+    await showHiddenDuplicate(env);
+    const showAndUse = screen.getByRole('button', { name: t('ingredientForm.showAndUse') });
+    expect(showAndUse.getAttribute('aria-disabled')).toBe('true');
+    await env.user.click(showAndUse);
+    expect(env.writes()).toHaveLength(1);
+
+    answer(json(200, { ...oldSpice, deleted: false, version: 2 }));
+    await vi.waitFor(() =>
+      expect(env.onselect).toHaveBeenCalledWith(expect.objectContaining({ id: oldSpice.id }))
+    );
   });
 
   it('checks the create form', async () => {

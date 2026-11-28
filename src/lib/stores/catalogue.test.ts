@@ -253,6 +253,58 @@ describe('CatalogueStore.mutate', () => {
     expect(store.recipes).toEqual([stored]);
   });
 
+  it('sends the expected version of a stale edit, so it conflicts instead of overwriting', async () => {
+    const { store, reply, writes, toasts } = await loaded();
+    // Someone else's edit arrives in a refetch after the caller copied version 1.
+    const theirs = { ...pancakes(), servings: 8, version: 2 };
+    reply('GET /catalogue', json(200, { recipes: [theirs], ingredients: [flour()] }));
+    await store.refresh();
+    reply(
+      `PUT ${recipePath(pancakesId)}`,
+      json(409, { error: { code: 'version-conflict', message: 'x' }, current: theirs })
+    );
+    const fields = strip(pancakes()) as Omit<Recipe, 'id' | 'version' | 'updatedAt' | 'updatedBy'>;
+
+    const result = await store.mutate({
+      kind: 'recipes',
+      id: pancakesId,
+      fields: { ...fields, notes: 'Mine' },
+      expectedVersion: 1
+    });
+
+    expect(writes()[0]?.body).toEqual({ ...fields, notes: 'Mine', version: 1 });
+    expect(result).toEqual({ outcome: 'conflict' });
+    expect(store.recipes).toEqual([theirs]);
+    expect(toasts.items[0]?.message).toBe(t('mutate.conflict', { item: 'Pancakes' }));
+  });
+
+  it('sends the confirmed version when the expected version is the one shown', async () => {
+    const { store, reply, writes } = await loaded();
+    const fields = strip(pancakes()) as Omit<Recipe, 'id' | 'version' | 'updatedAt' | 'updatedBy'>;
+    reply(`DELETE ${recipePath(pancakesId)}`, noContent());
+    reply(
+      'GET /catalogue',
+      json(200, { recipes: [{ ...pancakes(), deleted: true, version: 2 }], ingredients: [] })
+    );
+    reply(
+      `PUT ${recipePath(pancakesId)}`,
+      json(200, { ...pancakes(), notes: 'Mine', deleted: true, version: 3 })
+    );
+
+    // Queued behind the caller's own hide, which bumps the version to 2.
+    const hidden = store.hide('recipes', pancakesId);
+    const saved = store.mutate({
+      kind: 'recipes',
+      id: pancakesId,
+      fields: { ...fields, notes: 'Mine', deleted: true },
+      expectedVersion: 1
+    });
+
+    await expect(hidden).resolves.toEqual({ outcome: 'saved' });
+    await expect(saved).resolves.toEqual({ outcome: 'saved' });
+    expect(writes()[1]?.body).toMatchObject({ notes: 'Mine', version: 2 });
+  });
+
   it('names the item on a conflict, keeps the current copy, and offers a refresh', async () => {
     const { store, reply, toasts, requests } = await loaded();
     const current = { ...flour(), unit: 'kg', version: 5 };

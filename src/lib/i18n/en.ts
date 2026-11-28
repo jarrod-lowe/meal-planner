@@ -206,6 +206,8 @@ export const en = {
     hide: 'Hide recipe',
     showAgain: 'Show again',
     hiddenNote: 'This recipe is hidden, so it isn’t offered when planning meals.',
+    changedElsewhere: 'This recipe was changed by someone else.',
+    loadLatest: 'Load latest',
     notFound: {
       heading: 'Can’t find this recipe',
       message: 'This recipe doesn’t exist.'

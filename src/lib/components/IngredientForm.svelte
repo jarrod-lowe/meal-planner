@@ -84,9 +84,18 @@
 
   async function useExisting() {
     const existing = duplicate;
-    if (!existing) return;
-    if (existing.deleted) await store.show('ingredients', existing.id);
-    onuseexisting?.(store.ingredients.find((item) => item.id === existing.id) ?? existing);
+    if (!existing || busy) return;
+    if (!existing.deleted) return onuseexisting?.(existing);
+    busy = true;
+    try {
+      // On a failure or conflict the store toasts; the form stays open to retry.
+      const { outcome } = await store.show('ingredients', existing.id);
+      const shown = store.ingredients.find((item) => item.id === existing.id);
+      if (outcome === 'saved' && shown && !shown.deleted) onuseexisting?.(shown);
+      else if (shown) duplicate = shown;
+    } finally {
+      busy = false;
+    }
   }
 
   function onkeydown(event: KeyboardEvent) {
@@ -169,7 +178,13 @@
       </p>
       <div class="buttons">
         {#if purpose !== 'edit'}
-          <button type="button" class="primary" onclick={useExisting}>
+          <button
+            type="button"
+            class="primary"
+            onclick={useExisting}
+            aria-disabled={busy}
+            aria-busy={busy}
+          >
             {#if purpose === 'pick'}
               {t(duplicate.deleted ? 'ingredientForm.showAndUse' : 'ingredientForm.useExisting')}
             {:else}

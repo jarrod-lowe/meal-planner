@@ -3,7 +3,15 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { t } from '#lib/i18n/en.js';
 import type { Ingredient, Recipe } from '#lib/stores/catalogue.svelte.js';
-import { ingredient, json, loadedCatalogue, recipe, stored, uuidV7 } from '#lib/test/catalogue.js';
+import {
+  apiError,
+  ingredient,
+  json,
+  loadedCatalogue,
+  recipe,
+  stored,
+  uuidV7
+} from '#lib/test/catalogue.js';
 import RecipeEditor from './RecipeEditor.svelte';
 
 const flour = ingredient('Flour', 'g', { shopSection: 'pantry' });
@@ -204,7 +212,79 @@ describe('RecipeEditor', () => {
     expect(writes().map((w) => w.method)).toEqual(['DELETE', 'PUT']);
     expect(writes()[1]?.body).toMatchObject({ deleted: false, version: 2 });
     expect(screen.queryByText(t('recipe.hiddenNote'))).toBeNull();
+    expect(screen.queryByText(t('recipe.changedElsewhere'))).toBeNull();
     expect(document.activeElement).toBe(button(t('recipe.hide')));
+  });
+
+  it('keeps a stale draft from overwriting someone else’s change, and loads the latest', async () => {
+    const { store, user, reply, writes, toasts } = await setup(pancakes.id);
+    const theirs = { ...pancakes, servings: 8, notes: 'Their notes.', version: 2 };
+    await user.type(screen.getByLabelText(t('recipe.notes')), ' Mine.');
+
+    // A focus refetch brings someone else's edit.
+    reply('GET /catalogue', json(200, { recipes: [theirs], ingredients: [flour, eggs] }));
+    await store.refresh();
+    expect(await screen.findByText(t('recipe.changedElsewhere'))).toBeTruthy();
+    expect(screen.getByLabelText<HTMLTextAreaElement>(t('recipe.notes')).value).toBe(
+      'Whisk. Mine.'
+    );
+
+    reply(
+      `PUT /catalogue/recipes/${pancakes.id}`,
+      apiError(409, 'version-conflict', 'conflict', theirs)
+    );
+    await user.click(button(t('recipe.save')));
+    expect(writes()[0]?.body).toMatchObject({ notes: 'Whisk. Mine.', version: 1 });
+    expect(toasts.items[0]?.message).toBe(t('mutate.conflict', { item: 'Pancakes' }));
+    expect(screen.queryByText(t('recipe.saved'))).toBeNull();
+    expect(store.recipes[0]).toEqual(theirs);
+
+    await user.click(button(t('recipe.loadLatest')));
+    expect(screen.queryByText(t('recipe.changedElsewhere'))).toBeNull();
+    expect(screen.getByLabelText<HTMLInputElement>(t('recipe.servings')).value).toBe('8');
+    expect(screen.getByLabelText<HTMLTextAreaElement>(t('recipe.notes')).value).toBe(
+      'Their notes.'
+    );
+    expect(document.activeElement).toBe(screen.getByLabelText(t('recipe.name')));
+
+    reply(`PUT /catalogue/recipes/${pancakes.id}`, stored);
+    await user.type(screen.getByLabelText(t('recipe.notes')), ' Mine.');
+    await user.click(button(t('recipe.save')));
+    expect(writes()[1]?.body).toMatchObject({
+      servings: 8,
+      notes: 'Their notes. Mine.',
+      version: 2
+    });
+    expect(await screen.findByText(t('recipe.saved'))).toBeTruthy();
+  });
+
+  it('loads someone else’s change at once when the draft is untouched', async () => {
+    const { store, reply } = await setup(pancakes.id);
+    const theirs = { ...pancakes, servings: 8, version: 2 };
+
+    reply('GET /catalogue', json(200, { recipes: [theirs], ingredients: [flour, eggs] }));
+    await store.refresh();
+
+    await vi.waitFor(() =>
+      expect(screen.getByLabelText<HTMLInputElement>(t('recipe.servings')).value).toBe('8')
+    );
+    expect(screen.queryByText(t('recipe.changedElsewhere'))).toBeNull();
+  });
+
+  it('saves twice in a row without conflicting with itself', async () => {
+    const { user, reply, writes, toasts } = await setup(pancakes.id);
+    reply(`PUT /catalogue/recipes/${pancakes.id}`, stored, stored);
+
+    await user.type(screen.getByLabelText(t('recipe.notes')), ' Once.');
+    await user.click(button(t('recipe.save')));
+    expect(await screen.findByText(t('recipe.saved'))).toBeTruthy();
+    await user.type(screen.getByLabelText(t('recipe.notes')), ' Twice.');
+    await user.click(button(t('recipe.save')));
+
+    expect(writes().map((w) => (w.body as { version: number }).version)).toEqual([1, 2]);
+    expect(await screen.findByText(t('recipe.saved'))).toBeTruthy();
+    expect(toasts.items).toHaveLength(0);
+    expect(screen.queryByText(t('recipe.changedElsewhere'))).toBeNull();
   });
 
   it('says when the recipe doesn’t exist', async () => {

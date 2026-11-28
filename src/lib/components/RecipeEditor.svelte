@@ -8,8 +8,10 @@
   import {
     catalogue as appCatalogue,
     type CatalogueStore,
-    type Ingredient
+    type Ingredient,
+    type Recipe
   } from '#lib/stores/catalogue.svelte.js';
+  import type { MutationResult } from '#lib/stores/mutation-queue.js';
   import IngredientPicker from './IngredientPicker.svelte';
   import { maxNameLength } from './names.js';
   import {
@@ -52,18 +54,32 @@
     quantity: null
   });
 
-  /** The working copy, seeded once from the stored recipe. */
-  let draft = $state<RecipeDraft>(
-    untrack(() =>
-      existing
-        ? {
-            name: existing.name,
-            servings: existing.servings,
-            notes: existing.notes,
-            lines: existing.lines.map((line) => ({ ...newLine(), ...line }))
-          }
-        : { name: '', servings: 4, notes: '', lines: [newLine()] }
-    )
+  const seed = (recipe: Recipe | undefined): RecipeDraft =>
+    recipe
+      ? {
+          name: recipe.name,
+          servings: recipe.servings,
+          notes: recipe.notes,
+          lines: recipe.lines.map((line) => ({ ...newLine(), ...line }))
+        }
+      : { name: '', servings: 4, notes: '', lines: [newLine()] };
+  /** What a draft would save, for telling whether it has edits. */
+  const saveable = (from: RecipeDraft) => JSON.stringify(recipeFields(from, false));
+
+  /** The working copy, seeded from the stored recipe (and again on Load latest). */
+  let draft = $state<RecipeDraft>(untrack(() => seed(existing)));
+  /**
+   * The stored version the draft is based on, and what it saved as then. A
+   * save sends it as the expected version, so it can't overwrite a change
+   * that someone else made since.
+   */
+  let base = $state.raw(untrack(() => ({ version: existing?.version, fields: saveable(draft) })));
+  /** This editor's own saves, hides and shows in flight: they change the version too. */
+  let ownWrites = $state(0);
+
+  const dirty = $derived(saveable(draft) !== base.fields);
+  const changedElsewhere = $derived(
+    existing !== undefined && ownWrites === 0 && existing.version !== base.version
   );
 
   let submitted = $state(false);
@@ -163,29 +179,65 @@
     const found = recipeErrors(draft);
     if (hasErrors(found)) return focusFirstError(found);
     saving = true;
+    ownWrites++;
     try {
       const fields = recipeFields(draft, existing?.deleted ?? false);
-      const result = await store.mutate({ kind: 'recipes', id, fields });
+      const sent = saveable(draft);
+      const result = await store.mutate({
+        kind: 'recipes',
+        id,
+        fields,
+        expectedVersion: base.version
+      });
       if (result.outcome === 'saved') {
+        base = { version: existing?.version, fields: sent };
         saved = true;
         if (isNew) oncreated?.(id);
       }
     } finally {
+      ownWrites--;
       saving = false;
     }
   }
 
-  async function hide() {
+  /** Reseeds the draft from the stored recipe, dropping its edits. */
+  function reseed() {
+    draft = seed(existing);
+    base = { version: existing?.version, fields: saveable(draft) };
+    lineMessages = {};
+    submitted = false;
+    saved = false;
+  }
+
+  function loadLatest() {
+    reseed();
+    void focusElement(fieldId('name'));
+  }
+
+  // Someone else's change, with nothing here to lose: take it. An effect, not
+  // a `$derived`, since the draft is a deep working copy the inputs bind to.
+  $effect(() => {
+    if (changedElsewhere && !dirty) untrack(reseed);
+  });
+
+  /** Hides or shows the recipe; the version it leaves is the draft's base, if that was current. */
+  async function setVisibility(write: () => Promise<MutationResult>) {
     const focused = focusElement(fieldId('visibility'));
-    await store.hide('recipes', id);
+    const before = existing?.version;
+    ownWrites++;
+    try {
+      const result = await write();
+      if (result.outcome === 'saved' && base.version === before) {
+        base = { ...base, version: existing?.version };
+      }
+    } finally {
+      ownWrites--;
+    }
     await focused;
   }
 
-  async function show() {
-    const focused = focusElement(fieldId('visibility'));
-    await store.show('recipes', id);
-    await focused;
-  }
+  const hide = () => setVisibility(() => store.hide('recipes', id));
+  const show = () => setVisibility(() => store.show('recipes', id));
 
   const ingredientText = (ingredient: Ingredient) =>
     t('picker.option', {
@@ -223,6 +275,15 @@
     {#if existing?.deleted}
       <p class="note">{t('recipe.hiddenNote')}</p>
     {/if}
+    <!-- Always present, so screen readers announce the notice when it appears. -->
+    <div role="status">
+      {#if changedElsewhere}
+        <div class="changed">
+          <p>{t('recipe.changedElsewhere')}</p>
+          <button type="button" onclick={loadLatest}>{t('recipe.loadLatest')}</button>
+        </div>
+      {/if}
+    </div>
 
     <div class="fields">
       <div class="field grow">
@@ -442,6 +503,22 @@
 
   .error {
     color: var(--color-danger);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .changed {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-3);
+    color: var(--color-warning);
+    border: 1px solid var(--color-warning);
+    border-radius: var(--radius-md);
+  }
+
+  .changed p {
     font-weight: var(--font-weight-bold);
   }
 

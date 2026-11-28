@@ -4,7 +4,14 @@ import { describe, expect, it } from 'vitest';
 import type { CommonIngredient } from '#lib/catalogue/search.js';
 import { t } from '#lib/i18n/en.js';
 import type { Ingredient } from '#lib/stores/catalogue.svelte.js';
-import { ingredient, json, loadedCatalogue, stored, uuidV7 } from '#lib/test/catalogue.js';
+import {
+  apiError,
+  ingredient,
+  json,
+  loadedCatalogue,
+  stored,
+  uuidV7
+} from '#lib/test/catalogue.js';
 import IngredientList from './IngredientList.svelte';
 
 const sugar = ingredient('Sugar', 'g', { shopSection: 'pantry' });
@@ -96,6 +103,34 @@ describe('IngredientList', () => {
     expect(document.activeElement).toBe(
       button(t('ingredients.editLabel', { name: 'Caster sugar', unit: 'g' }))
     );
+  });
+
+  it('sends the version the edit form read, so a stale edit conflicts', async () => {
+    const { store, user, reply, writes, toasts } = await setup();
+    await user.click(button(t('ingredients.editLabel', { name: 'Sugar', unit: 'g' })));
+    const form = screen.getByRole('form', { name: t('ingredients.editForm', { name: 'Sugar' }) });
+
+    // Someone else changes the unit while the form is open.
+    const theirs = { ...sugar, unit: 'kg', version: 2 };
+    reply('GET /catalogue', json(200, { recipes: [], ingredients: [theirs, milk] }));
+    await store.refresh();
+    reply(
+      `PUT /catalogue/ingredients/${sugar.id}`,
+      apiError(409, 'version-conflict', 'conflict', theirs)
+    );
+    const name = within(form).getByLabelText(t('ingredientForm.name'));
+    await user.clear(name);
+    await user.type(name, 'Caster sugar{Enter}');
+
+    expect(writes()).toEqual([
+      {
+        method: 'PUT',
+        path: `/catalogue/ingredients/${sugar.id}`,
+        body: { name: 'Caster sugar', unit: 'g', shopSection: 'pantry', deleted: false, version: 1 }
+      }
+    ]);
+    expect(toasts.items[0]?.message).toBe(t('mutate.conflict', { item: 'Caster sugar' }));
+    expect(store.ingredients[0]).toEqual(theirs);
   });
 
   it('cancels an edit with Escape, sending nothing', async () => {
@@ -215,6 +250,20 @@ describe('IngredientList', () => {
 
     expect(writes()[0]?.body).toMatchObject({ deleted: false });
     expect(screen.getByText(t('ingredients.row', { name: 'Old spice', unit: 'jar' }))).toBeTruthy();
+  });
+
+  it('keeps the add form open when showing the hidden duplicate fails', async () => {
+    const { user, reply, toasts } = await setup();
+    reply(`PUT /catalogue/ingredients/${oldSpice.id}`, apiError(400, 'invalid', 'Nope'));
+
+    await user.click(button(t('ingredients.add')));
+    await user.type(screen.getByLabelText(t('ingredientForm.name')), 'Old spice');
+    await user.type(screen.getByLabelText(t('ingredientForm.unit')), 'jar{Enter}');
+    await user.click(button(t('ingredientForm.showExisting')));
+
+    expect(toasts.items).toHaveLength(1);
+    expect(screen.getByRole('form', { name: t('ingredients.addForm') })).toBeTruthy();
+    expect(screen.queryByText(t('ingredients.row', { name: 'Old spice', unit: 'jar' }))).toBeNull();
   });
 
   it('adds a common ingredient that matches the search', async () => {

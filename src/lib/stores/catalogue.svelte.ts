@@ -32,6 +32,13 @@ export type CatalogueMutation = {
     fields: CatalogueFields<K>;
     /** Names the item in toasts. Defaults to its `name`. */
     label?: string;
+    /**
+     * The version the caller's copy was read at (a form seeded from the
+     * store). If the store now shows another version, someone else changed
+     * the item meanwhile, so this version is sent instead: the server answers
+     * with a version conflict rather than taking the stale copy.
+     */
+    expectedVersion?: number;
   };
 }[CatalogueKind];
 
@@ -54,8 +61,13 @@ interface Place {
   readonly id: string;
 }
 
-/** What the queue sends: a PUT of the fields, or a DELETE that hides the item. */
-type Request = CatalogueMutation | { readonly kind: CatalogueKind; readonly hide: true };
+/**
+ * What the queue sends: a PUT of the fields (at `staleVersion`, when the
+ * caller's copy is out of date), or a DELETE that hides the item.
+ */
+type Request =
+  | (CatalogueMutation & { readonly staleVersion?: number })
+  | { readonly kind: CatalogueKind; readonly hide: true };
 
 interface Lists {
   readonly recipes: readonly Recipe[];
@@ -124,6 +136,7 @@ export class CatalogueStore {
         show: ({ context }, item) =>
           this.#setLists(put(this.#lists(), context.kind, context.id, item)),
         send: ({ context }, write, version) => this.#send(write.mutation, context, version),
+        version: (_lane, { mutation }) => ('hide' in mutation ? undefined : mutation.staleVersion),
         fetchStored: async ({ context }) =>
           find(await this.#api.get('/catalogue'), context.kind, context.id)
       }
@@ -172,11 +185,20 @@ export class CatalogueStore {
    * Creates or updates a recipe or ingredient (§7.3): applies it at once,
    * sends it with the item's version, then keeps the server's copy. Conflicts,
    * retries, rollbacks, queueing and sign-out work as in the holiday store
-   * (see `MutationQueue`).
+   * (see `MutationQueue`). With `expectedVersion`, a copy read before
+   * someone else's change conflicts instead of overwriting it.
    */
   async mutate(mutation: CatalogueMutation): Promise<MutationResult> {
     this.#requireLoaded();
-    return this.#enqueue(mutation, mutation.id, mutation.fields, mutation.label);
+    const { expectedVersion } = mutation;
+    // While the caller's own writes are pending, the store shows the version
+    // they started from, so a copy read since then still matches it.
+    const shown = find(this, mutation.kind, mutation.id);
+    const request =
+      shown && expectedVersion !== undefined && expectedVersion !== shown.version
+        ? { ...mutation, staleVersion: expectedVersion }
+        : mutation;
+    return this.#enqueue(request, mutation.id, mutation.fields, mutation.label);
   }
 
   /**

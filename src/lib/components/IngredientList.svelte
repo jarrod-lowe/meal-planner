@@ -28,6 +28,8 @@
   let showHidden = $state(false);
   let adding = $state(false);
   let editingId = $state<string | null>(null);
+  /** The version the edit form was seeded from: sent as the expected version. */
+  let editingVersion: number | undefined;
   let searchField = $state<HTMLInputElement>();
   let addButton = $state<HTMLButtonElement>();
 
@@ -70,6 +72,11 @@
     addButton?.focus();
   }
 
+  function startEdit(item: Ingredient) {
+    editingId = item.id;
+    editingVersion = item.version;
+  }
+
   async function finishEdit(id: string) {
     editingId = null;
     await focusById(editButtonId(id));
@@ -85,7 +92,8 @@
       await store.mutate({
         kind: 'ingredients',
         id: item.id,
-        fields: { ...fields, deleted: item.deleted }
+        fields: { ...fields, deleted: item.deleted },
+        expectedVersion: editingVersion
       });
     }
     await done;
@@ -209,7 +217,7 @@
                     type="button"
                     id={editButtonId(item.id)}
                     aria-label={t('ingredients.editLabel', names)}
-                    onclick={() => (editingId = item.id)}
+                    onclick={() => startEdit(item)}
                   >
                     {t('ingredients.edit')}
                   </button>
