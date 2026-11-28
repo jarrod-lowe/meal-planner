@@ -75,7 +75,7 @@ deployment".
 
 - [x] Add the `meal-planner` and `meal-planner-ro` profiles to
       `~/.aws/config`: copies of `dnd-planner` and `dnd-planner-ro`.
-- [ ] Run each `make setup-*` and `make deploy-test` when asked. Agents can't
+- [x] Run each `make setup-*` and `make deploy-test` when asked. Agents can't
       apply with admin credentials.
 
 ## PR 1.1: Terraform bootstrap
@@ -198,7 +198,7 @@ deployment".
   - Files: `.github/workflows/environment-prod-deploy.yaml`.
 - [x] **19. Required checks.** Add the prod plan check to branch protection.
       I'll ask before running it.
-- [ ] **20. Prod users (human).** After the first prod deploy,
+- [x] **20. Prod users (human).** After the first prod deploy,
       `make create-user ENV=prod …` and check both hosts.
 
 **Done when:** a new user gets the invitation email and can log in on both
