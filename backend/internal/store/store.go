@@ -72,3 +72,27 @@ type Store interface {
 	// holiday succeeds.
 	DeleteHoliday(ctx context.Context, holidayID string) error
 }
+
+// Deletable is a catalogue item, which is soft-deleted (DESIGN §2.3).
+type Deletable interface {
+	Item
+	// SetKeys sets the storage keys from the item's ID.
+	SetKeys()
+	// Deletion returns the item's soft-delete flag.
+	Deletion() *bool
+}
+
+// CatalogueStore is what the catalogue handler needs from storage.
+type CatalogueStore interface {
+	// Put is Store.Put.
+	Put(ctx context.Context, item Item, by string) error
+	// LoadCatalogue returns every recipe and ingredient, soft-deleted ones
+	// included.
+	LoadCatalogue(ctx context.Context) (model.Catalogue, error)
+	// SoftDelete sets the item's `deleted` flag and bumps its version,
+	// retrying when another write gets in first. Only the item's ID needs
+	// to be set; on success it holds the stored item. Deleting an item
+	// that is already deleted succeeds without a write; a missing item is
+	// ErrNotFound.
+	SoftDelete(ctx context.Context, item Deletable, by string) error
+}
