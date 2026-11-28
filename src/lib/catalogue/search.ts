@@ -184,8 +184,18 @@ export function isDuplicate(
   unit: string,
   exceptId?: string
 ): boolean {
+  return findDuplicate(ingredients, name, unit, exceptId) !== undefined;
+}
+
+/** The item {@link isDuplicate} finds, so the UI can offer to use it instead. */
+export function findDuplicate(
+  ingredients: readonly Ingredient[],
+  name: string,
+  unit: string,
+  exceptId?: string
+): Ingredient | undefined {
   const key = nameUnitKey(name, unit);
-  return ingredients.some((i) => i.id !== exceptId && nameUnitKey(i.name, i.unit) === key);
+  return ingredients.find((i) => i.id !== exceptId && nameUnitKey(i.name, i.unit) === key);
 }
 
 /**

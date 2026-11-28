@@ -23,11 +23,7 @@
 </svelte:head>
 
 <main>
-  <header>
-    <h1>{t('home.greeting', { name })}</h1>
-    <!-- Signing out flips the session, and the layout's guard returns to /login. -->
-    <button type="button" onclick={() => session.signOut()}>{t('home.signOut')}</button>
-  </header>
+  <h1>{t('home.greeting', { name })}</h1>
 
   <section aria-labelledby="holidays-heading">
     <h2 id="holidays-heading">{t('home.holidaysHeading')}</h2>
@@ -52,14 +48,6 @@
     gap: var(--space-8);
   }
 
-  header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-4);
-  }
-
   section {
     display: flex;
     flex-direction: column;
@@ -76,15 +64,5 @@
     font-size: var(--font-size-lg);
     line-height: var(--line-height-tight);
     margin: 0;
-  }
-
-  button {
-    font: inherit;
-    cursor: pointer;
-    color: var(--color-text);
-    background: var(--color-surface-raised);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    padding: var(--space-3) var(--space-4);
   }
 </style>

@@ -4,6 +4,13 @@ export const en = {
     title: 'Meal planner',
     loading: 'Loading…'
   },
+  appNav: {
+    label: 'Main',
+    holidays: 'Holidays',
+    recipes: 'Recipes',
+    ingredients: 'Ingredients',
+    signOut: 'Sign out'
+  },
   toasts: {
     label: 'Notifications',
     dismiss: 'Dismiss',
@@ -17,6 +24,7 @@ export const en = {
     loading: 'Loading the holiday…',
     refresh: 'Refresh',
     refreshing: 'Refreshing…',
+    actions: 'Holiday actions',
     allHolidays: 'All holidays',
     backHome: 'Back to your holidays',
     retry: 'Try again',
@@ -106,12 +114,137 @@ export const en = {
     }
   },
   catalogue: {
-    refreshFailed: 'Couldn’t refresh the recipes and ingredients. Showing what was loaded before.'
+    refreshFailed: 'Couldn’t refresh the recipes and ingredients. Showing what was loaded before.',
+    loading: 'Loading recipes and ingredients…',
+    loadFailed: 'Couldn’t load the recipes and ingredients. Check your connection and try again.',
+    retry: 'Try again'
+  },
+  shopSections: {
+    produce: 'Produce',
+    bakery: 'Bakery',
+    'meat-fish': 'Meat and fish',
+    dairy: 'Dairy',
+    frozen: 'Frozen',
+    pantry: 'Pantry',
+    drinks: 'Drinks',
+    household: 'Household',
+    other: 'Other'
+  },
+  picker: {
+    option: '{name} · {unit} · {section}',
+    suggestions: 'Add to catalogue',
+    addToCatalogue: 'Add to catalogue',
+    create: 'Create “{query}”…',
+    adding: 'Adding {name}…',
+    newIngredient: 'New ingredient'
+  },
+  recipePicker: {
+    option: '{name} · serves {servings}',
+    create: 'Create new recipe “{query}”…'
+  },
+  ingredientForm: {
+    name: 'Name',
+    unit: 'Unit',
+    shopSection: 'Shop section',
+    save: 'Save',
+    cancel: 'Cancel',
+    duplicate: 'There’s already an ingredient called {name}, measured in {unit}.',
+    duplicateHidden:
+      'There’s already an ingredient called {name}, measured in {unit}, but it’s hidden.',
+    useExisting: 'Use the existing one',
+    showAndUse: 'Show it again and use it',
+    keepExisting: 'Keep the existing one',
+    showExisting: 'Show the existing one again',
+    createAnyway: 'Create anyway',
+    saveAnyway: 'Save anyway',
+    errors: {
+      nameRequired: 'Enter a name.',
+      nameTooLong: 'Use 100 characters or fewer.',
+      unitRequired: 'Enter a unit, such as g or each.',
+      unitTooLong: 'Use 20 characters or fewer.'
+    }
+  },
+  recipes: {
+    title: 'Recipes · Meal planner',
+    heading: 'Recipes',
+    search: 'Search recipes',
+    showHidden: 'Show hidden',
+    new: 'New recipe',
+    serves: 'Serves {count}',
+    oneIngredient: '1 ingredient',
+    ingredientCount: '{count} ingredients',
+    hidden: 'Hidden',
+    showAgain: 'Show again',
+    showAgainLabel: 'Show again: {name}',
+    empty: 'No recipes yet. Create one with New recipe.',
+    noMatches: 'No recipes match “{query}”.'
+  },
+  recipe: {
+    title: '{name} · Meal planner',
+    newTitle: 'New recipe · Meal planner',
+    newHeading: 'New recipe',
+    back: 'All recipes',
+    name: 'Name',
+    servings: 'Servings',
+    notes: 'Notes',
+    notesHelp: 'Method, source, or anything else worth remembering.',
+    lines: 'Ingredients',
+    linesHelp: 'Press Enter in a quantity to add another ingredient.',
+    ingredientLabel: 'Ingredient, line {n}',
+    quantityLabel: 'Quantity, line {n}',
+    change: 'Change',
+    changeLabel: 'Change the ingredient on line {n}',
+    remove: 'Remove',
+    removeLabel: 'Remove line {n}',
+    addLine: 'Add ingredient',
+    alreadyUsed: '{name} ({unit}) is already on line {n}. Change its quantity there instead.',
+    unknownIngredient: 'Unknown ingredient',
+    hiddenIngredient: 'Hidden',
+    save: 'Save recipe',
+    saving: 'Saving…',
+    saved: 'Saved.',
+    hide: 'Hide recipe',
+    showAgain: 'Show again',
+    hiddenNote: 'This recipe is hidden, so it isn’t offered when planning meals.',
+    notFound: {
+      heading: 'Can’t find this recipe',
+      message: 'This recipe doesn’t exist.'
+    },
+    errors: {
+      nameRequired: 'Enter a name.',
+      nameTooLong: 'Use 100 characters or fewer.',
+      servingsRequired: 'Enter a number of servings above 0.',
+      notesTooLong: 'Use 10,000 characters or fewer.',
+      tooManyLines: 'Use 200 ingredient lines or fewer.',
+      ingredientRequired: 'Choose an ingredient.',
+      quantityRequired: 'Enter a quantity above 0.'
+    }
+  },
+  ingredients: {
+    title: 'Ingredients · Meal planner',
+    heading: 'Ingredients',
+    search: 'Search ingredients',
+    showHidden: 'Show hidden',
+    add: 'Add ingredient',
+    addForm: 'New ingredient',
+    row: '{name} · {unit}',
+    hidden: 'Hidden',
+    edit: 'Edit',
+    editLabel: 'Edit {name} ({unit})',
+    editForm: 'Edit {name}',
+    hide: 'Hide',
+    hideLabel: 'Hide {name} ({unit})',
+    showAgain: 'Show again',
+    showAgainLabel: 'Show again: {name} ({unit})',
+    empty: 'No ingredients yet. Add one, or search to add common ones.',
+    noMatches: 'No ingredients match “{query}”.',
+    suggestions: 'Common ingredients to add',
+    addSuggestion: 'Add',
+    addSuggestionLabel: 'Add {name} ({unit}, {section}) to the catalogue'
   },
   home: {
     title: 'Home · Meal planner',
     greeting: 'Hello, {name}',
-    signOut: 'Sign out',
     holidaysHeading: 'Your holidays',
     loading: 'Loading your holidays…',
     loadFailed: 'Couldn’t load your holidays. Check your connection and try again.',

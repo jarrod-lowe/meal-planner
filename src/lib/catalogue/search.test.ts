@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { components } from '#lib/api/types.js';
 import {
   COMMON_UNITS,
+  findDuplicate,
   isDuplicate,
   searchIngredients,
   searchRecipes,
@@ -243,6 +244,12 @@ describe('isDuplicate', () => {
     const sugar = items[0];
     expect(sugar).toBeDefined();
     expect(isDuplicate(items, 'Sugar', 'g', sugar?.id)).toBe(false);
+  });
+
+  it('findDuplicate returns the existing item, or undefined', () => {
+    expect(findDuplicate(items, 'OLD SPICE', ' jar')).toBe(items[1]);
+    expect(findDuplicate(items, 'Sugar', 'kg')).toBeUndefined();
+    expect(findDuplicate(items, 'Sugar', 'g', items[0]?.id)).toBeUndefined();
   });
 });
 

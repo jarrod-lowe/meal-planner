@@ -99,7 +99,7 @@ test('next is honoured after sign-in', async ({ page }) => {
 });
 
 test('a next with no matching route goes home', async ({ page }) => {
-  await page.goto('/login?next=%2Frecipes%3Fsort%3Dname');
+  await page.goto('/login?next=%2Fnowhere%3Fsort%3Dname');
   await submitSignIn(page, normal.email, normal.password);
   await expect(page).toHaveURL('/');
   await expect(heading(page, greeting(normal.name))).toBeVisible();
