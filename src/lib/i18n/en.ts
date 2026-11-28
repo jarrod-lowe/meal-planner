@@ -12,7 +12,82 @@ export const en = {
     info: 'Note'
   },
   holiday: {
-    refreshFailed: 'Couldn’t refresh the holiday. Showing what was loaded before.'
+    refreshFailed: 'Couldn’t refresh the holiday. Showing what was loaded before.',
+    loadingTitle: 'Holiday · Meal planner',
+    loading: 'Loading the holiday…',
+    refresh: 'Refresh',
+    refreshing: 'Refreshing…',
+    allHolidays: 'All holidays',
+    backHome: 'Back to your holidays',
+    retry: 'Try again',
+    errors: {
+      heading: 'Can’t open this holiday',
+      notFound: 'This holiday doesn’t exist. It may have been deleted.',
+      notAMember: 'You’re not a member of this holiday. Ask one of its members to add you.',
+      failed: 'Couldn’t load the holiday. Check your connection and try again.'
+    },
+    nav: {
+      label: 'Holiday',
+      overview: 'Overview',
+      plan: 'Plan',
+      trips: 'Trips',
+      stock: 'Stock',
+      people: 'People',
+      comingSoon: '(coming soon)'
+    }
+  },
+  confirm: {
+    cancel: 'Cancel'
+  },
+  people: {
+    title: 'People · {name}',
+    heading: 'People',
+    nameRequired: 'Enter a name.',
+    nameTooLong: 'Use 100 characters or fewer.',
+    attendees: {
+      heading: 'Attendees',
+      intro: 'Everyone eating on the holiday, with or without a login.',
+      empty: 'No attendees yet.',
+      newName: 'New attendee’s name',
+      add: 'Add attendee',
+      rename: 'Rename',
+      renameLabel: 'Rename {name}',
+      renameField: 'New name for {name}',
+      save: 'Save',
+      cancel: 'Cancel',
+      delete: 'Delete',
+      deleteLabel: 'Delete {name}',
+      deleteHeading: 'Delete {name}?',
+      deleteMessage: 'This removes {name} from the holiday. It can’t be undone.',
+      deleteConfirm: 'Delete attendee'
+    },
+    members: {
+      heading: 'Members',
+      intro: 'People who can see and change this holiday.',
+      you: '(you)',
+      unknown: 'Unknown user',
+      remove: 'Remove',
+      removeLabel: 'Remove {name}',
+      leave: 'Leave holiday',
+      leaveHeading: 'Leave this holiday?',
+      leaveMessage: 'You’ll lose access to {holiday} until another member adds you again.',
+      leaveConfirm: 'Leave holiday',
+      lastMember:
+        'You’re the last member of this holiday, so you can’t leave it. Add another member first.',
+      addField: 'User to add',
+      choose: 'Choose a user',
+      add: 'Add member',
+      noneToAdd: 'Every user is already a member.',
+      usersLoading: 'Loading users…',
+      usersFailed: 'Couldn’t load the list of users.',
+      retry: 'Try again'
+    }
+  },
+  overview: {
+    title: '{name} · Meal planner',
+    dates: 'Dates',
+    timeZone: 'Time zone',
+    placeholder: 'The next 48 hours, shortfalls and upcoming trips will show here.'
   },
   mutate: {
     refreshHoliday: 'Refresh holiday',
@@ -30,7 +105,31 @@ export const en = {
   home: {
     title: 'Home · Meal planner',
     greeting: 'Hello, {name}',
-    signOut: 'Sign out'
+    signOut: 'Sign out',
+    holidaysHeading: 'Your holidays',
+    loading: 'Loading your holidays…',
+    loadFailed: 'Couldn’t load your holidays. Check your connection and try again.',
+    retry: 'Try again',
+    empty: 'You’re not in any holidays yet. Create one below.'
+  },
+  createHoliday: {
+    heading: 'Create a holiday',
+    name: 'Name',
+    startDate: 'Start date',
+    endDate: 'End date',
+    timeZone: 'Time zone',
+    timeZoneHelp: 'Where the holiday is. Used to work out the time there.',
+    submit: 'Create holiday',
+    busy: 'Creating holiday…',
+    failed: 'Couldn’t create the holiday. Check your connection and try again.',
+    rejected: 'Couldn’t create the holiday: {message}',
+    errors: {
+      nameRequired: 'Enter a name.',
+      nameTooLong: 'Use 100 characters or fewer.',
+      startRequired: 'Enter a start date.',
+      endRequired: 'Enter an end date.',
+      endBeforeStart: 'The end date must be on or after the start date.'
+    }
   },
   login: {
     title: 'Sign in · Meal planner',
