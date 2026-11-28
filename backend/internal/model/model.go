@@ -7,18 +7,23 @@ import "encoding/json"
 
 // Item types, stored in the `type` attribute (DESIGN §4).
 const (
-	TypeHoliday  = "holiday"
-	TypeMember   = "member"
-	TypeAttendee = "attendee"
+	TypeHoliday    = "holiday"
+	TypeMember     = "member"
+	TypeAttendee   = "attendee"
+	TypeRecipe     = "recipe"
+	TypeIngredient = "ingredient"
 )
 
 // Sort keys and key prefixes (DESIGN §4).
 const (
-	HolidayPrefix  = "HOLIDAY#"
-	MetaSK         = "META"
-	MemberPrefix   = "MEMBER#"
-	AttendeePrefix = "ATTENDEE#"
-	UserPrefix     = "USER#"
+	HolidayPrefix    = "HOLIDAY#"
+	MetaSK           = "META"
+	MemberPrefix     = "MEMBER#"
+	AttendeePrefix   = "ATTENDEE#"
+	UserPrefix       = "USER#"
+	CataloguePK      = "CATALOGUE"
+	RecipePrefix     = "RECIPE#"
+	IngredientPrefix = "INGREDIENT#"
 )
 
 // HolidayPK is the partition key of a holiday's items.
@@ -149,4 +154,116 @@ type AttendeeInput struct {
 // Only version 0 (create) is meaningful.
 type MemberInput struct {
 	Version int `json:"version"`
+}
+
+// ShopSection is a section of a shop (DESIGN §2.1).
+type ShopSection string
+
+// Shop sections, in the order they appear on a shopping list (DESIGN §2.1).
+const (
+	ShopSectionProduce   ShopSection = "produce"
+	ShopSectionBakery    ShopSection = "bakery"
+	ShopSectionMeatFish  ShopSection = "meat-fish"
+	ShopSectionDairy     ShopSection = "dairy"
+	ShopSectionFrozen    ShopSection = "frozen"
+	ShopSectionPantry    ShopSection = "pantry"
+	ShopSectionDrinks    ShopSection = "drinks"
+	ShopSectionHousehold ShopSection = "household"
+	ShopSectionOther     ShopSection = "other"
+)
+
+// ShopSections lists every shop section in shopping-list order.
+var ShopSections = []ShopSection{
+	ShopSectionProduce, ShopSectionBakery, ShopSectionMeatFish, ShopSectionDairy, ShopSectionFrozen,
+	ShopSectionPantry, ShopSectionDrinks, ShopSectionHousehold, ShopSectionOther,
+}
+
+// Ingredient is a catalogue ingredient. Deletes are soft (DESIGN §2.3).
+type Ingredient struct {
+	StorageKeys
+	ID          string      `json:"id" dynamodbav:"id"`
+	Name        string      `json:"name" dynamodbav:"name"`
+	Unit        string      `json:"unit" dynamodbav:"unit"`
+	ShopSection ShopSection `json:"shopSection" dynamodbav:"shopSection"`
+	Deleted     bool        `json:"deleted" dynamodbav:"deleted"`
+	Versioned
+}
+
+// SetKeys sets the ingredient's storage keys from its ID.
+func (i *Ingredient) SetKeys() {
+	i.StorageKeys = StorageKeys{PK: CataloguePK, SK: IngredientPrefix + i.ID, Type: TypeIngredient}
+}
+
+// Deletion returns the ingredient's soft-delete flag.
+func (i *Ingredient) Deletion() *bool { return &i.Deleted }
+
+// RecipeLine is one ingredient of a recipe, for the recipe's servings.
+type RecipeLine struct {
+	IngredientID string  `json:"ingredientId" dynamodbav:"ingredientId"`
+	Quantity     float64 `json:"quantity" dynamodbav:"quantity"`
+}
+
+// Recipe is a catalogue recipe. Deletes are soft (DESIGN §2.3).
+type Recipe struct {
+	StorageKeys
+	ID       string       `json:"id" dynamodbav:"id"`
+	Name     string       `json:"name" dynamodbav:"name"`
+	Servings float64      `json:"servings" dynamodbav:"servings"`
+	Lines    []RecipeLine `json:"lines" dynamodbav:"lines"`
+	Notes    string       `json:"notes" dynamodbav:"notes"`
+	Deleted  bool         `json:"deleted" dynamodbav:"deleted"`
+	Versioned
+}
+
+// SetKeys sets the recipe's storage keys from its ID.
+func (r *Recipe) SetKeys() {
+	r.StorageKeys = StorageKeys{PK: CataloguePK, SK: RecipePrefix + r.ID, Type: TypeRecipe}
+}
+
+// Deletion returns the recipe's soft-delete flag.
+func (r *Recipe) Deletion() *bool { return &r.Deleted }
+
+// MarshalJSON writes nil lines as an empty array, never null.
+func (r Recipe) MarshalJSON() ([]byte, error) {
+	type plain Recipe
+	p := plain(r)
+	p.Lines = nonNil(p.Lines)
+	return json.Marshal(p)
+}
+
+// Catalogue is the whole shared catalogue, as GET /catalogue returns it,
+// soft-deleted items included.
+type Catalogue struct {
+	Recipes     []Recipe     `json:"recipes"`
+	Ingredients []Ingredient `json:"ingredients"`
+}
+
+// MarshalJSON writes nil slices as empty arrays, never null.
+func (c Catalogue) MarshalJSON() ([]byte, error) {
+	type plain Catalogue
+	p := plain(c)
+	p.Recipes = nonNil(p.Recipes)
+	p.Ingredients = nonNil(p.Ingredients)
+	return json.Marshal(p)
+}
+
+// RecipeInput is the body of PUT /catalogue/recipes/{id}. Version 0
+// creates; `deleted: false` shows a hidden recipe again.
+type RecipeInput struct {
+	Name     string       `json:"name"`
+	Servings float64      `json:"servings"`
+	Lines    []RecipeLine `json:"lines"`
+	Notes    string       `json:"notes"`
+	Deleted  bool         `json:"deleted"`
+	Version  int          `json:"version"`
+}
+
+// IngredientInput is the body of PUT /catalogue/ingredients/{id}. Version 0
+// creates; `deleted: false` shows a hidden ingredient again.
+type IngredientInput struct {
+	Name        string      `json:"name"`
+	Unit        string      `json:"unit"`
+	ShopSection ShopSection `json:"shopSection"`
+	Deleted     bool        `json:"deleted"`
+	Version     int         `json:"version"`
 }

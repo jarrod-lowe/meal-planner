@@ -2,6 +2,8 @@ package validate
 
 import (
 	"errors"
+	"fmt"
+	"math"
 	"strings"
 	"testing"
 
@@ -174,4 +176,111 @@ func TestMemberInput(t *testing.T) {
 	check(t, MemberInput(model.MemberInput{Version: 0}), false)
 	check(t, MemberInput(model.MemberInput{Version: 1}), true)
 	check(t, MemberInput(model.MemberInput{Version: -1}), true)
+}
+
+const (
+	ing1 = "01936b2e-7f1a-7c3d-8e4f-000000000001"
+	ing2 = "01936b2e-7f1a-7c3d-8e4f-000000000002"
+)
+
+func TestIngredientInput(t *testing.T) {
+	good := model.IngredientInput{Name: "Sugar", Unit: "g", ShopSection: model.ShopSectionPantry, Version: 0}
+	tests := []struct {
+		name    string
+		mutate  func(*model.IngredientInput)
+		wantErr bool
+	}{
+		{name: "valid", mutate: func(*model.IngredientInput) {}},
+		{name: "deleted, at a version", mutate: func(in *model.IngredientInput) { in.Deleted, in.Version = true, 3 }},
+		{name: "100-character name", mutate: func(in *model.IngredientInput) { in.Name = strings.Repeat("é", 100) }},
+		{name: "101-character name", mutate: func(in *model.IngredientInput) { in.Name = strings.Repeat("é", 101) }, wantErr: true},
+		{name: "empty name", mutate: func(in *model.IngredientInput) { in.Name = "" }, wantErr: true},
+		{name: "blank name", mutate: func(in *model.IngredientInput) { in.Name = "  " }, wantErr: true},
+		{name: "1-character unit", mutate: func(in *model.IngredientInput) { in.Unit = "l" }},
+		{name: "20-character unit", mutate: func(in *model.IngredientInput) { in.Unit = strings.Repeat("ü", 20) }},
+		{name: "21-character unit", mutate: func(in *model.IngredientInput) { in.Unit = strings.Repeat("ü", 21) }, wantErr: true},
+		{name: "empty unit", mutate: func(in *model.IngredientInput) { in.Unit = "" }, wantErr: true},
+		{name: "blank unit", mutate: func(in *model.IngredientInput) { in.Unit = " " }, wantErr: true},
+		{name: "invalid UTF-8 unit", mutate: func(in *model.IngredientInput) { in.Unit = "\xff" }, wantErr: true},
+		{name: "first shop section", mutate: func(in *model.IngredientInput) { in.ShopSection = "produce" }},
+		{name: "last shop section", mutate: func(in *model.IngredientInput) { in.ShopSection = "other" }},
+		{name: "unknown shop section", mutate: func(in *model.IngredientInput) { in.ShopSection = "garden" }, wantErr: true},
+		{name: "wrong-case shop section", mutate: func(in *model.IngredientInput) { in.ShopSection = "Pantry" }, wantErr: true},
+		{name: "empty shop section", mutate: func(in *model.IngredientInput) { in.ShopSection = "" }, wantErr: true},
+		{name: "negative version", mutate: func(in *model.IngredientInput) { in.Version = -1 }, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			in := good
+			tt.mutate(&in)
+			check(t, IngredientInput(in), tt.wantErr)
+		})
+	}
+}
+
+func TestRecipeInput(t *testing.T) {
+	good := func() model.RecipeInput {
+		return model.RecipeInput{Name: "Pancakes", Servings: 4, Notes: "Mix.", Version: 0,
+			Lines: []model.RecipeLine{{IngredientID: ing1, Quantity: 2}, {IngredientID: ing2, Quantity: 0.5}}}
+	}
+	lines := func(n int) []model.RecipeLine {
+		out := make([]model.RecipeLine, n)
+		for i := range out {
+			out[i] = model.RecipeLine{IngredientID: fmt.Sprintf("01936b2e-7f1a-7c3d-8e4f-%012x", i+1), Quantity: 1}
+		}
+		return out
+	}
+	tests := []struct {
+		name    string
+		mutate  func(*model.RecipeInput)
+		wantErr bool
+	}{
+		{name: "valid", mutate: func(*model.RecipeInput) {}},
+		{name: "deleted, at a version", mutate: func(in *model.RecipeInput) { in.Deleted, in.Version = true, 5 }},
+		{name: "no lines", mutate: func(in *model.RecipeInput) { in.Lines = nil }},
+		{name: "empty lines", mutate: func(in *model.RecipeInput) { in.Lines = []model.RecipeLine{} }},
+		{name: "200 lines", mutate: func(in *model.RecipeInput) { in.Lines = lines(200) }},
+		{name: "201 lines", mutate: func(in *model.RecipeInput) { in.Lines = lines(201) }, wantErr: true},
+		{name: "100-character name", mutate: func(in *model.RecipeInput) { in.Name = strings.Repeat("a", 100) }},
+		{name: "101-character name", mutate: func(in *model.RecipeInput) { in.Name = strings.Repeat("a", 101) }, wantErr: true},
+		{name: "empty name", mutate: func(in *model.RecipeInput) { in.Name = "" }, wantErr: true},
+		{name: "blank name", mutate: func(in *model.RecipeInput) { in.Name = "\t" }, wantErr: true},
+		{name: "empty notes", mutate: func(in *model.RecipeInput) { in.Notes = "" }},
+		{name: "10,000-character notes", mutate: func(in *model.RecipeInput) { in.Notes = strings.Repeat("é", 10000) }},
+		{name: "10,001-character notes", mutate: func(in *model.RecipeInput) { in.Notes = strings.Repeat("é", 10001) }, wantErr: true},
+		{name: "invalid UTF-8 notes", mutate: func(in *model.RecipeInput) { in.Notes = "\xff" }, wantErr: true},
+		{name: "fractional servings", mutate: func(in *model.RecipeInput) { in.Servings = 0.5 }},
+		{name: "zero servings", mutate: func(in *model.RecipeInput) { in.Servings = 0 }, wantErr: true},
+		{name: "negative servings", mutate: func(in *model.RecipeInput) { in.Servings = -1 }, wantErr: true},
+		{name: "infinite servings", mutate: func(in *model.RecipeInput) { in.Servings = math.Inf(1) }, wantErr: true},
+		{name: "NaN servings", mutate: func(in *model.RecipeInput) { in.Servings = math.NaN() }, wantErr: true},
+		{name: "tiny quantity", mutate: func(in *model.RecipeInput) { in.Lines[0].Quantity = 0.001 }},
+		{name: "zero quantity", mutate: func(in *model.RecipeInput) { in.Lines[1].Quantity = 0 }, wantErr: true},
+		{name: "negative quantity", mutate: func(in *model.RecipeInput) { in.Lines[0].Quantity = -2 }, wantErr: true},
+		{name: "infinite quantity", mutate: func(in *model.RecipeInput) { in.Lines[0].Quantity = math.Inf(1) }, wantErr: true},
+		{name: "NaN quantity", mutate: func(in *model.RecipeInput) { in.Lines[0].Quantity = math.NaN() }, wantErr: true},
+		{name: "bad ingredient ID", mutate: func(in *model.RecipeInput) { in.Lines[1].IngredientID = "sugar" }, wantErr: true},
+		{name: "empty ingredient ID", mutate: func(in *model.RecipeInput) { in.Lines[0].IngredientID = "" }, wantErr: true},
+		{name: "repeated ingredient", mutate: func(in *model.RecipeInput) { in.Lines[1].IngredientID = ing1 }, wantErr: true},
+		{name: "negative version", mutate: func(in *model.RecipeInput) { in.Version = -1 }, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			in := good()
+			tt.mutate(&in)
+			check(t, RecipeInput(in), tt.wantErr)
+		})
+	}
+}
+
+func TestRecipeInputMessages(t *testing.T) {
+	in := model.RecipeInput{Name: "P", Servings: 1, Lines: []model.RecipeLine{{IngredientID: ing1, Quantity: 1}, {IngredientID: ing1, Quantity: 2}}}
+	err := RecipeInput(in)
+	if err == nil || !strings.Contains(err.Error(), "lines[1]") {
+		t.Errorf("error = %v, want it to name lines[1]", err)
+	}
+	in.Lines = []model.RecipeLine{{IngredientID: ing1, Quantity: 1}, {IngredientID: ing2, Quantity: 0}}
+	if err := RecipeInput(in); err == nil || !strings.Contains(err.Error(), "lines[1].quantity") {
+		t.Errorf("error = %v, want it to name lines[1].quantity", err)
+	}
 }
