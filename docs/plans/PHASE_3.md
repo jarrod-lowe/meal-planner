@@ -90,7 +90,7 @@ picker), §10 (component tests); ARCHITECTURE "Helpfulness".
 - [x] **6. Deploy to test.** The agent runs `make deploy-test`; then
       `GET /api/catalogue` without a token returns `401`, and the function
       runs the built zip.
-- [ ] **7. PR and review.** Open the PR; Codex loop.
+- [x] **7. PR and review.** Open the PR; Codex loop.
 
 ## PR 3.2: Catalogue UI
 
@@ -138,6 +138,6 @@ picker), §10 (component tests); ARCHITECTURE "Helpfulness".
       suggestion, build a recipe with the picker (keyboard only), hide it
       and show it again. Axe checks on `/ingredients`, `/recipes` and the
       editor, desktop and Pixel 7.
-- [ ] **18. Verify in test (human).** The agent runs `make deploy-test` and
+- [x] **18. Verify in test (human).** The agent runs `make deploy-test` and
       `make seed-test`; the human checks the "You can" list.
 - [ ] **19. PR and review.** Open the PR; Codex loop.
