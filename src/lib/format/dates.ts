@@ -23,3 +23,26 @@ export function formatDateRange(start: string, end: string): string {
   // ICU puts thin and no-break spaces around the dash; plain spaces read the same.
   return dateFormat.formatRange(toDate(start), toDate(end)).replace(/\s+/gu, ' ');
 }
+
+const shortDateFormat = new Intl.DateTimeFormat('en-GB', {
+  day: 'numeric',
+  month: 'short',
+  timeZone: 'UTC'
+});
+
+const dayFormat = new Intl.DateTimeFormat('en-GB', {
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+  timeZone: 'UTC'
+});
+
+/** `"2027-01-01"` → `"1 Jan"`, as in suggested meal names. */
+export function formatShortDate(localDate: string): string {
+  return shortDateFormat.format(toDate(localDate));
+}
+
+/** `"2026-12-26"` → `"Sat 26 Dec"`, for the planner's rows. */
+export function formatDay(localDate: string): string {
+  return dayFormat.format(toDate(localDate)).replace(',', '');
+}

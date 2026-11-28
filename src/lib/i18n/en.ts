@@ -67,7 +67,12 @@ export const en = {
       deleteLabel: 'Delete {name}',
       deleteHeading: 'Delete {name}?',
       deleteMessage: 'This removes {name} from the holiday. It can’t be undone.',
-      deleteConfirm: 'Delete attendee'
+      deleteConfirm: 'Delete attendee',
+      deleteMealsMessage:
+        '{name} is eating these meals. Deleting them takes them off each meal first. It can’t be undone.',
+      deleteMealsFailed:
+        'Couldn’t take {name} off {meal}, so {name} wasn’t deleted. Try again once the plan has caught up.',
+      deletingMeals: 'Taking {name} off their meals…'
     },
     members: {
       heading: 'Members',
@@ -95,7 +100,23 @@ export const en = {
     title: '{name} · Meal planner',
     dates: 'Dates',
     timeZone: 'Time zone',
-    placeholder: 'The next 48 hours, shortfalls and upcoming trips will show here.'
+    placeholder: 'The next 48 hours, shortfalls and upcoming trips will show here.',
+    warnings: {
+      heading: 'Warnings',
+      none: 'No warnings.',
+      unknownMeal: 'A meal',
+      unknownRecipe: 'A recipe',
+      mealWithoutRecipe: '{meal} has no recipe yet.',
+      mealtimeWithoutAttendees: 'No one is eating {meal} on {day}.',
+      missingRecipe: '{meal} uses a recipe that no longer exists.',
+      missingIngredient: '{recipe} uses an ingredient that no longer exists.',
+      chooseRecipe: 'Choose a recipe',
+      chooseRecipeLabel: 'Choose a recipe for {meal}',
+      chooseEaters: 'Choose who’s eating',
+      chooseEatersLabel: 'Choose who’s eating {meal}',
+      fixRecipe: 'Fix the recipe',
+      fixRecipeLabel: 'Fix the recipe {recipe}'
+    }
   },
   mutate: {
     refreshHoliday: 'Refresh holiday',
@@ -109,6 +130,7 @@ export const en = {
       holiday: 'the holiday',
       attendees: 'an attendee',
       members: 'a member',
+      meals: 'a meal',
       recipes: 'a recipe',
       ingredients: 'an ingredient'
     }
@@ -184,6 +206,7 @@ export const en = {
     newTitle: 'New recipe · Meal planner',
     newHeading: 'New recipe',
     back: 'All recipes',
+    backToMeal: 'Back to the meal',
     name: 'Name',
     servings: 'Servings',
     notes: 'Notes',
@@ -222,6 +245,85 @@ export const en = {
       quantityRequired: 'Enter a quantity above 0.'
     }
   },
+  slots: {
+    breakfast: 'Breakfast',
+    lunch: 'Lunch',
+    dinner: 'Dinner',
+    snacks: 'Snacks',
+    other: 'Other'
+  },
+  plan: {
+    title: 'Plan · {name}',
+    heading: 'Plan',
+    caption: 'Meals by day and meal slot',
+    day: 'Day',
+    noRecipe: 'No recipe yet',
+    missingRecipe: 'Recipe missing',
+    servings: '{count} eating',
+    add: '+',
+    addLabel: 'Add {slot} on {date}',
+    addAnother: '+ Add another',
+    addAnotherLabel: 'Add another {slot} on {date}',
+    outside: {
+      heading: 'Outside the holiday dates',
+      intro: 'These meals have mealtimes before or after the holiday. Open one to move it.',
+      meal: '{name} · {date}'
+    }
+  },
+  meal: {
+    title: '{name} · {holiday}',
+    newTitle: 'New meal · {holiday}',
+    newHeading: 'New meal',
+    back: 'Back to the plan',
+    suggestedName: '{date} {slot}',
+    name: 'Name',
+    slot: 'Meal slot',
+    date: 'Date',
+    time: 'Time',
+    recipe: 'Recipe',
+    findRecipe: 'Find a recipe',
+    noRecipe: 'No recipe yet',
+    missingRecipe: 'This meal’s recipe no longer exists.',
+    hiddenRecipe: 'Hidden',
+    change: 'Change',
+    changeLabel: 'Change the recipe',
+    remove: 'Remove',
+    removeLabel: 'Remove the recipe',
+    eating: 'Who’s eating',
+    everyone: 'Everyone',
+    noOne: 'No one',
+    noAttendees: 'This holiday has no attendees yet. Add them on People.',
+    preview: {
+      heading: 'Ingredients',
+      serves: 'Serves {servings} (recipe for {recipeServings}, ×{factor})',
+      noRecipe: 'Choose a recipe to see its ingredients.',
+      noOne: 'No one is eating, so nothing is used.',
+      empty: 'The recipe has no ingredients.',
+      ingredient: 'Ingredient',
+      quantity: 'Quantity',
+      unit: 'Unit'
+    },
+    save: 'Save meal',
+    saving: 'Saving…',
+    saved: 'Saved.',
+    delete: 'Delete meal',
+    deleteHeading: 'Delete {name}?',
+    deleteMessage: 'This removes {name} from the plan. It can’t be undone.',
+    deleteConfirm: 'Delete meal',
+    changedElsewhere: 'This meal was changed by someone else.',
+    loadLatest: 'Load latest',
+    notFound: {
+      heading: 'Can’t find this meal',
+      message: 'This meal doesn’t exist. It may have been deleted.'
+    },
+    errors: {
+      nameRequired: 'Enter a name.',
+      nameTooLong: 'Use 100 characters or fewer.',
+      dateRequired: 'Enter a date.',
+      timeRequired: 'Enter a time.'
+    }
+  },
+
   ingredients: {
     title: 'Ingredients · Meal planner',
     heading: 'Ingredients',

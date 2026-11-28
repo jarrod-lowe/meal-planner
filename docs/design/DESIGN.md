@@ -796,7 +796,9 @@ used to show member names.
   pattern.
 - **Not colour alone:** shortfall and warning states use an icon and text as
   well as colour.
-- **Planner grid:** a `table` with row and column headers. Chips are buttons.
+- **Planner grid:** a `table` with row and column headers. Chips and **+** are
+  links to the meal editor, so they keep the tab order; arrow keys move between
+  cells.
 - **Checks:** axe checks run in Playwright E2E tests.
 
 ---

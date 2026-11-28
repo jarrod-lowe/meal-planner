@@ -1,7 +1,8 @@
 import '#lib/test/dialog.js';
 import { render, screen, within } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { Schemas } from '#lib/api/client.js';
 import { t } from '#lib/i18n/en.js';
 import { apiError, facts, holidayId, json, loadedHoliday, meta } from '#lib/test/holiday.js';
 import AttendeeList from './AttendeeList.svelte';
@@ -11,8 +12,8 @@ const ann = { id: annId, name: 'Ann', version: 2, ...meta };
 const path = (id: string) => `/holidays/${holidayId}/attendees/${id}`;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
-async function setup(attendees = [ann]) {
-  const env = await loadedHoliday(facts({ attendees }));
+async function setup(attendees = [ann], meals: Schemas['Meal'][] = []) {
+  const env = await loadedHoliday(facts({ attendees, meals }));
   render(AttendeeList, { store: env.store });
   return { ...env, user: userEvent.setup() };
 }
@@ -161,5 +162,126 @@ describe('AttendeeList', () => {
 
     expect(within(list()).getByText('Anna')).toBeTruthy();
     expect(toasts.items[0]?.action?.label).toBe(t('mutate.refreshHoliday'));
+  });
+});
+
+describe('AttendeeList, deleting someone who eats meals', () => {
+  const bob = { id: '0190a0b0-0000-7000-8000-0000000000a2', name: 'Bob', version: 1, ...meta };
+  const meal = (n: number, name: string, eaters: string[][]): Schemas['Meal'] => ({
+    id: `0190a0b0-0000-7000-8000-0000000000c${n}`,
+    name,
+    slot: 'dinner',
+    recipeId: null,
+    mealtimes: eaters.map((attendeeIds, day) => ({
+      id: `0190a0b0-0000-7000-8000-000000000${n}d${day}`,
+      at: `2027-01-0${day + 1}T18:30`,
+      attendeeIds
+    })),
+    version: n + 1,
+    ...meta
+  });
+  const feast = meal(1, 'Feast', [[annId, bob.id]]);
+  const picnic = meal(2, 'Picnic', [[bob.id], [annId]]);
+  const supper = meal(3, 'Supper', [[bob.id]]);
+  const mealPath = (id: string) => `/holidays/${holidayId}/meals/${id}`;
+  const echo = (request: { path: string; body: unknown }) => {
+    const body = request.body as Schemas['MealInput'];
+    return json(200, {
+      ...body,
+      id: request.path.split('/').at(-1),
+      version: (body.version ?? 0) + 1,
+      ...meta
+    });
+  };
+
+  async function askToDelete() {
+    const env = await setup([ann, bob], [feast, picnic, supper]);
+    await env.user.click(
+      screen.getByRole('button', { name: t('people.attendees.deleteLabel', { name: 'Ann' }) })
+    );
+    const dialog = screen.getByRole('dialog', {
+      name: t('people.attendees.deleteHeading', { name: 'Ann' })
+    });
+    const confirm = () =>
+      env.user.click(
+        within(dialog).getByRole('button', { name: t('people.attendees.deleteConfirm') })
+      );
+    return { ...env, dialog, confirm };
+  }
+
+  it('lists the meals they’re eating before deleting', async () => {
+    const { dialog } = await askToDelete();
+
+    expect(
+      within(dialog).getByText(t('people.attendees.deleteMealsMessage', { name: 'Ann' }))
+    ).toBeTruthy();
+    const meals = within(within(dialog).getByRole('list')).getAllByRole('listitem');
+    expect(meals.map((item) => item.textContent?.trim())).toEqual(['Feast', 'Picnic']);
+  });
+
+  it('takes them off each meal with one PUT per meal, then deletes them', async () => {
+    const { reply, requests, confirm, store } = await askToDelete();
+    reply('PUT', echo, echo);
+    reply(`DELETE ${path(annId)}`, new Response(null, { status: 204 }));
+
+    await confirm();
+
+    await vi.waitFor(() => expect(requests).toHaveLength(3));
+    expect(requests.map((request) => `${request.method} ${request.path}`)).toEqual([
+      `PUT ${mealPath(feast.id)}`,
+      `PUT ${mealPath(picnic.id)}`,
+      `DELETE ${path(annId)}`
+    ]);
+    expect(requests[0]?.body).toEqual({
+      name: 'Feast',
+      slot: 'dinner',
+      recipeId: null,
+      mealtimes: [{ ...feast.mealtimes[0], attendeeIds: [bob.id] }],
+      version: feast.version
+    });
+    expect((requests[1]?.body as Schemas['MealInput']).mealtimes).toEqual([
+      picnic.mealtimes[0],
+      { ...picnic.mealtimes[1], attendeeIds: [] }
+    ]);
+    expect(requests[1]?.body).toMatchObject({ version: picnic.version });
+    await vi.waitFor(() => expect(within(list()).queryByText('Ann')).toBeNull());
+    expect(store.facts?.meals.map((m) => m.mealtimes.flatMap((mt) => mt.attendeeIds))).toEqual([
+      [bob.id],
+      [bob.id],
+      [bob.id]
+    ]);
+  });
+
+  it('stops before the delete when a meal can’t be saved', async () => {
+    const { reply, requests, confirm } = await askToDelete();
+    reply('PUT', echo, apiError(409, 'version-conflict', 'x', { ...picnic, version: 9 }));
+
+    await confirm();
+
+    expect(
+      await screen.findByText(
+        t('people.attendees.deleteMealsFailed', { name: 'Ann', meal: 'Picnic' })
+      )
+    ).toBeTruthy();
+    expect(requests.map((request) => request.method)).toEqual(['PUT', 'PUT']);
+    expect(within(list()).getByText('Ann')).toBeTruthy();
+  });
+
+  it('deletes someone who eats no meals at once, as before', async () => {
+    const { user, reply, requests } = await setup([ann, bob], [supper]);
+    reply(`DELETE ${path(annId)}`, new Response(null, { status: 204 }));
+
+    await user.click(
+      screen.getByRole('button', { name: t('people.attendees.deleteLabel', { name: 'Ann' }) })
+    );
+    const dialog = screen.getByRole('dialog', {
+      name: t('people.attendees.deleteHeading', { name: 'Ann' })
+    });
+    expect(within(dialog).queryByRole('list')).toBeNull();
+    await user.click(
+      within(dialog).getByRole('button', { name: t('people.attendees.deleteConfirm') })
+    );
+
+    expect(requests).toEqual([{ method: 'DELETE', path: path(annId), body: undefined }]);
   });
 });

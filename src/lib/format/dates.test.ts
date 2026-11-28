@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDate, formatDateRange } from './dates';
+import { formatDate, formatDateRange, formatDay, formatShortDate } from './dates';
 
 describe('formatDate', () => {
   it('formats a LocalDate without shifting it by the time zone', () => {
@@ -18,5 +18,18 @@ describe('formatDateRange', () => {
 
   it('shows one date for a one-day holiday', () => {
     expect(formatDateRange('2027-01-01', '2027-01-01')).toBe('1 Jan 2027');
+  });
+});
+
+describe('formatShortDate', () => {
+  it('gives the day and short month, without the year', () => {
+    expect(formatShortDate('2027-01-01')).toBe('1 Jan');
+    expect(formatShortDate('2026-12-26')).toBe('26 Dec');
+  });
+});
+
+describe('formatDay', () => {
+  it('gives the weekday, day and short month', () => {
+    expect(formatDay('2026-12-26')).toBe('Sat 26 Dec');
   });
 });

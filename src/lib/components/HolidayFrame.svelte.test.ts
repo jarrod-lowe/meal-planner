@@ -4,7 +4,9 @@ import { createRawSnippet } from 'svelte';
 import { describe, expect, it, vi } from 'vitest';
 import { createApiClient, type Schemas } from '#lib/api/client.js';
 import { t } from '#lib/i18n/en.js';
+import { CatalogueStore } from '#lib/stores/catalogue.svelte.js';
 import { HolidayStore } from '#lib/stores/holiday.svelte.js';
+import { NowStore } from '#lib/stores/now.svelte.js';
 import { Toasts } from '#lib/stores/toast.svelte.js';
 import HolidayFrame from './HolidayFrame.svelte';
 
@@ -35,6 +37,19 @@ const error = (status: number, code: string) => json(status, { error: { code, me
 type Reply = Response | Promise<Response>;
 
 function setup(...replies: Reply[]) {
+  const catalogueFetch = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(() =>
+    Promise.resolve(json(200, { recipes: [], ingredients: [] }))
+  );
+  const catalogue = new CatalogueStore({
+    api: createApiClient({ fetch: catalogueFetch, token: () => Promise.resolve('token') }),
+    toasts: new Toasts()
+  });
+  const starts = { running: 0 };
+  const now = new NowStore({ timeZone: () => 'UTC' });
+  vi.spyOn(now, 'start').mockImplementation(() => {
+    starts.running++;
+    return () => starts.running--;
+  });
   const queue = [...replies];
   const fetch = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(() => {
     const reply = queue.shift();
@@ -48,14 +63,24 @@ function setup(...replies: Reply[]) {
     sleep: () => Promise.resolve()
   });
   const children = createRawSnippet(() => ({ render: () => '<p>Page content</p>' }));
-  const result = render(HolidayFrame, { store, holidayId, current: 'overview', children });
+  const result = render(HolidayFrame, {
+    store,
+    catalogue,
+    now,
+    holidayId,
+    current: 'overview',
+    children
+  });
   return {
     store,
     fetch,
     reply: (r: Reply) => queue.push(r),
     tick: (ms: number) => (clock += ms),
     rerender: result.rerender,
-    children
+    unmount: result.unmount,
+    children,
+    catalogueFetch,
+    starts
   };
 }
 
@@ -137,5 +162,33 @@ describe('HolidayFrame', () => {
     window.dispatchEvent(new Event('focus'));
 
     await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+  });
+});
+
+describe('HolidayFrame and the catalogue', () => {
+  it('loads the catalogue before showing the page', async () => {
+    const { catalogueFetch } = setup(json(200, facts()));
+
+    expect(await screen.findByText('Page content')).toBeTruthy();
+    expect(catalogueFetch.mock.calls.map(([url]) => url)).toEqual(['/api/catalogue']);
+  });
+
+  it('refreshes the catalogue too from the refresh button', async () => {
+    const { catalogueFetch, reply } = setup(json(200, facts()));
+    await screen.findByText('Page content');
+    reply(json(200, facts()));
+
+    await userEvent.setup().click(screen.getByRole('button', { name: t('holiday.refresh') }));
+
+    await vi.waitFor(() => expect(catalogueFetch).toHaveBeenCalledTimes(2));
+  });
+
+  it('keeps now ticking while it’s open', async () => {
+    const { starts, unmount } = setup(json(200, facts()));
+    await screen.findByText('Page content');
+
+    expect(starts.running).toBe(1);
+    unmount();
+    expect(starts.running).toBe(0);
   });
 });

@@ -28,11 +28,15 @@ const pancakes = recipe('Pancakes', {
 });
 const noContent = () => new Response(null, { status: 204 });
 
-async function setup(recipeId: string, recipes: Recipe[] = [pancakes]) {
+async function setup(
+  recipeId: string,
+  recipes: Recipe[] = [pancakes],
+  more: { name?: string | null; back?: string | null } = {}
+) {
   const ingredients: Ingredient[] = [flour, eggs, milk, lard];
   const env = await loadedCatalogue({ recipes, ingredients });
   const oncreated = vi.fn();
-  render(RecipeEditor, { store: env.store, recipeId, common: [], oncreated });
+  render(RecipeEditor, { store: env.store, recipeId, common: [], oncreated, ...more });
   return { ...env, oncreated, user: userEvent.setup() };
 }
 
@@ -386,5 +390,21 @@ describe('RecipeEditor', () => {
     expect(screen.getByRole('link', { name: t('recipe.back') }).getAttribute('href')).toBe(
       '/recipes'
     );
+  });
+
+  it('starts a new recipe with the name it was given', async () => {
+    await setup('new', [pancakes], { name: 'Lasagne' });
+
+    expect(screen.getByLabelText<HTMLInputElement>(t('recipe.name')).value).toBe('Lasagne');
+  });
+
+  it('goes back to the meal it was opened from', async () => {
+    const meal = '/holidays/h/meals/new?date=2027-01-01';
+    await setup('new', [pancakes], { back: meal });
+
+    expect(screen.getByRole('link', { name: t('recipe.backToMeal') }).getAttribute('href')).toBe(
+      meal
+    );
+    expect(screen.queryByRole('link', { name: t('recipe.back') })).toBeNull();
   });
 });

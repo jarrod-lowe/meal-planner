@@ -1,4 +1,4 @@
-// An in-memory stand-in for the holidays, users and catalogue API (DESIGN §5),
+// An in-memory stand-in for the holidays, meals, users and catalogue API (DESIGN §5),
 // served through Playwright route interception. It keeps versions, membership,
 // the last-member rule and soft deletes like the Lambdas do, and can be told to
 // fail a request with a version conflict.
@@ -12,6 +12,7 @@ type Member = Schemas['Member'];
 type User = Schemas['User'];
 type Recipe = Schemas['Recipe'];
 type Ingredient = Schemas['Ingredient'];
+type Meal = Schemas['Meal'];
 
 export interface SeedCatalogue {
   readonly recipes?: readonly (Omit<Recipe, 'version' | 'updatedAt' | 'updatedBy'> &
@@ -23,6 +24,7 @@ export interface SeedCatalogue {
 interface StoredHoliday {
   holiday: Holiday;
   attendees: Map<string, Attendee>;
+  meals: Map<string, Meal>;
   members: Map<string, Member>;
 }
 
@@ -36,6 +38,7 @@ export interface SeedHoliday {
   readonly holiday: Pick<Holiday, 'id' | 'name' | 'timeZone' | 'startDate' | 'endDate'> &
     Partial<Holiday>;
   readonly attendees?: readonly (Pick<Attendee, 'id' | 'name'> & Partial<Attendee>)[];
+  readonly meals?: readonly (Omit<Meal, 'version' | 'updatedAt' | 'updatedBy'> & Partial<Meal>)[];
   /** Member subs. */
   readonly members: readonly string[];
 }
@@ -67,10 +70,11 @@ export class MockApi {
   #conflicts: ForcedConflict[] = [];
 
   /** Adds a holiday, with version-1 items. */
-  seed({ holiday, attendees = [], members }: SeedHoliday) {
+  seed({ holiday, attendees = [], meals = [], members }: SeedHoliday) {
     this.holidays.set(holiday.id, {
       holiday: { version: 1, ...stamp, ...holiday },
       attendees: new Map(attendees.map((a) => [a.id, { version: 1, ...stamp, ...a }])),
+      meals: new Map(meals.map((m) => [m.id, { version: 1, ...stamp, ...m }])),
       members: new Map(members.map((sub) => [sub, { userSub: sub, version: 1, ...stamp }]))
     });
   }
@@ -103,7 +107,7 @@ export class MockApi {
     return {
       holiday: stored.holiday,
       attendees: [...stored.attendees.values()],
-      meals: [],
+      meals: [...stored.meals.values()],
       trips: [],
       stockChanges: [],
       members: [...stored.members.values()]
@@ -157,6 +161,7 @@ export class MockApi {
       this.holidays.set(holidayId, {
         holiday,
         attendees: new Map(),
+        meals: new Map(),
         members: new Map([[sub, { userSub: sub, version: 1, ...now }]])
       });
       return json(route, 200, holiday);
@@ -219,6 +224,26 @@ export class MockApi {
       }
       if (method === 'DELETE') {
         stored.attendees.delete(id);
+        return route.fulfill({ status: 204 });
+      }
+    }
+
+    if (kind === 'meals' && parts.length === 4) {
+      const existing = stored.meals.get(id);
+      if (method === 'PUT') {
+        const { version, ...input } = body as Schemas['MealInput'];
+        if (version === 0 && existing) return fail(route, 409, 'already-exists');
+        if (version !== (existing?.version ?? 0)) {
+          return fail(route, 409, 'version-conflict', { current: existing ?? null });
+        }
+        // The Lambda stores mealtimes sorted by `at`.
+        const mealtimes = [...input.mealtimes].sort((a, b) => a.at.localeCompare(b.at));
+        const meal: Meal = { ...input, mealtimes, id, version: version + 1, ...now };
+        stored.meals.set(id, meal);
+        return json(route, 200, meal);
+      }
+      if (method === 'DELETE') {
+        stored.meals.delete(id);
         return route.fulfill({ status: 204 });
       }
     }

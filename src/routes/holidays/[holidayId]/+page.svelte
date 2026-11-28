@@ -1,10 +1,14 @@
 <script lang="ts">
   import { formatDateRange } from '#lib/format/dates.js';
   import { t } from '#lib/i18n/en.js';
+  import WarningList from '#lib/components/WarningList.svelte';
+  import { catalogue } from '#lib/stores/catalogue.svelte.js';
   import { holiday } from '#lib/stores/holiday.svelte.js';
+  import { planStore } from '#lib/stores/plan.svelte.js';
 
   // The layout renders this page only once the holiday's facts are loaded.
   const meta = $derived(holiday.facts?.holiday);
+  const warnings = $derived(planStore.plan?.warnings ?? []);
 </script>
 
 <svelte:head>
@@ -24,6 +28,15 @@
         <dd>{meta.timeZone}</dd>
       </div>
     </dl>
+    <section aria-labelledby="overview-warnings">
+      <h2 id="overview-warnings">{t('overview.warnings.heading')}</h2>
+      <WarningList
+        holidayId={meta.id}
+        {warnings}
+        meals={holiday.facts?.meals ?? []}
+        recipes={catalogue.recipes}
+      />
+    </section>
     <p class="muted">{t('overview.placeholder')}</p>
   </main>
 {/if}
@@ -37,6 +50,18 @@
 
   h1 {
     font-size: var(--font-size-2xl);
+    line-height: var(--line-height-tight);
+    margin: 0;
+  }
+
+  section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  h2 {
+    font-size: var(--font-size-lg);
     line-height: var(--line-height-tight);
     margin: 0;
   }

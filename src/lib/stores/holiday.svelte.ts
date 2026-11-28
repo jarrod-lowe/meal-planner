@@ -17,11 +17,12 @@ export {
 
 export type HolidayFacts = Schemas['HolidayFacts'];
 
-/** The kinds of item `mutate()` writes, and their stored types. Later phases add meals, trips and stock changes. */
+/** The kinds of item `mutate()` writes, and their stored types. Later phases add trips and stock changes. */
 export interface ItemTypes {
   holiday: Schemas['Holiday'];
   attendees: Schemas['Attendee'];
   members: Schemas['Member'];
+  meals: Schemas['Meal'];
 }
 
 export type ItemKind = keyof ItemTypes;
@@ -42,7 +43,18 @@ interface Common {
 
 /** Create or update an item: it's a create when the store doesn't have it yet. */
 export type Save = {
-  readonly [K in ListKind]: Common & { kind: K; id: string; fields: Fields<K> };
+  readonly [K in ListKind]: Common & {
+    kind: K;
+    id: string;
+    fields: Fields<K>;
+    /**
+     * The version the caller's copy was read at (a form seeded from the
+     * store), sent exactly as given instead of the confirmed version: if the
+     * item changed since, the server answers with a version conflict rather
+     * than taking the stale copy. As in the catalogue store.
+     */
+    expectedVersion?: number;
+  };
 }[ListKind];
 export type Remove = {
   readonly [K in ListKind]: Common & { kind: K; id: string; remove: true };
@@ -76,7 +88,8 @@ interface Place {
 /** Which field identifies an item in each list. */
 const keyField: Readonly<Record<ListKind, 'id' | 'userSub'>> = {
   attendees: 'id',
-  members: 'userSub'
+  members: 'userSub',
+  meals: 'id'
 };
 
 function readItem(facts: HolidayFacts, kind: ItemKind, id: string): AnyItem | undefined {
@@ -158,7 +171,10 @@ export class HolidayStore {
           return readItem(fresh, context.kind, context.id);
         },
         // Members are only ever created (§5.1); everything else sends the version the server last gave.
-        version: ({ context }) => (context.kind === 'members' ? 0 : undefined),
+        version: ({ context }, { mutation }) => {
+          if (context.kind === 'members') return 0;
+          return 'expectedVersion' in mutation ? mutation.expectedVersion : undefined;
+        },
         // A conflict never removes the META.
         canVanish: ({ context }) => context.kind !== 'holiday'
       }
@@ -283,6 +299,8 @@ export class HolidayStore {
     if ('remove' in mutation) {
       if (mutation.kind === 'attendees') {
         await api.del('/holidays/{holidayId}/attendees/{id}', { holidayId, id });
+      } else if (mutation.kind === 'meals') {
+        await api.del('/holidays/{holidayId}/meals/{id}', { holidayId, id });
       } else {
         await api.del('/holidays/{holidayId}/members/{userSub}', { holidayId, userSub: id });
       }
@@ -302,6 +320,12 @@ export class HolidayStore {
           '/holidays/{holidayId}/members/{userSub}',
           { holidayId, userSub: id },
           { version: 0 }
+        );
+      case 'meals':
+        return api.put(
+          '/holidays/{holidayId}/meals/{id}',
+          { holidayId, id },
+          { ...mutation.fields, version }
         );
     }
   }

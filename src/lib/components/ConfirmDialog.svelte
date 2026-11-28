@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { tick, type Snippet } from 'svelte';
   import { t } from '#lib/i18n/en.js';
 
   let {
@@ -7,7 +7,8 @@
     heading,
     message,
     confirmLabel,
-    onconfirm
+    onconfirm,
+    children
   }: {
     open?: boolean;
     /** Already translated. */
@@ -15,6 +16,8 @@
     message: string;
     confirmLabel: string;
     onconfirm: () => void;
+    /** More detail, between the message and the buttons. */
+    children?: Snippet;
   } = $props();
 
   const id = $props.id();
@@ -46,6 +49,7 @@
   {#if open}
     <h2 id="{id}-heading">{heading}</h2>
     <p id="{id}-message">{message}</p>
+    {@render children?.()}
     <div class="buttons">
       <button type="button" data-cancel onclick={() => (open = false)}>
         {t('confirm.cancel')}
