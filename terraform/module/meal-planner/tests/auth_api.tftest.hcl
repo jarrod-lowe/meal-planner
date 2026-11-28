@@ -11,6 +11,13 @@ mock_provider "aws" {
     }
   }
 
+  # Known at plan, so the API body is too.
+  mock_resource "aws_lambda_function" {
+    defaults = {
+      invoke_arn = "arn:aws:apigateway:ap-southeast-2:lambda:path/2015-03-31/functions/example/invocations"
+    }
+  }
+
   override_data {
     target = data.aws_region.current
     values = {

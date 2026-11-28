@@ -1,6 +1,6 @@
 .PHONY: help install dev build lint check test test-unit test-go test-e2e format validate gofmt-check clean \
 	terraform-fmt-check terraform-version-check test-terraform trivy lock setup-state setup-aws setup-github \
-	env-local build-ui push-ui deploy-test create-user
+	env-local build-ui push-ui deploy-test create-user build-lambdas deploy-lambdas
 
 default: help
 
@@ -72,12 +72,15 @@ terraform/%/.init-local: $$(wildcard terraform/$$*/*.tf) $$(wildcard terraform/$
 # Real init, against the S3 backend. State locking (`use_lockfile`) is set in
 # each environment's backend block.
 .PRECIOUS: terraform/environment/%/.terraform
-terraform/environment/%/.terraform:
+# Re-run when the lock file changes (a new or upgraded provider needs a fresh
+# init). Touched afterwards, since init needn't change the directory's mtime.
+terraform/environment/%/.terraform: $$(wildcard terraform/environment/$$*/.terraform.lock.hcl)
 	$(require-aws)
 	cd terraform/environment/$* && terraform init -input=false \
 		-backend-config="bucket=$(STATE_BUCKET)" \
 		-backend-config="key=$(PROJECT)/$*/terraform.tfstate" \
 		-backend-config="region=$(AWS_REGION)"
+	@touch $@
 
 # The state environment keeps its state in the bucket it manages, so the
 # bucket has to exist before init.
@@ -154,9 +157,11 @@ require-env = $(if $(filter $(APP_ENVS),$(ENV)),,$(error Set ENV=test or ENV=pro
 # fails with a clear message rather than a missing-rule error.
 env-output-json = $(if $(filter $(APP_ENVS),$(ENV)),$(OUTPUT_JSON))
 
-# One Terraform output from output.json, failing when it's missing. Recipes
-# are expanded after their prerequisites are made, so the file is current.
-tf-output = $(or $(shell jq -r '.$(1).value // empty' $(OUTPUT_JSON) 2>/dev/null),$(error No `$(1)` in $(OUTPUT_JSON)))
+# One Terraform output from output.json, failing when it's missing. The
+# optional second argument is a jq path into the output's value (`.users`).
+# Recipes are expanded after their prerequisites are made, so the file is
+# current.
+tf-output = $(or $(shell jq -r '.$(1).value$(2) // empty' $(OUTPUT_JSON) 2>/dev/null),$(error No `$(1)$(2)` in $(OUTPUT_JSON)))
 
 # The environment's Terraform outputs, read from its state. Always refreshed,
 # and deliberately not dependent on an apply, so CI (which applies with its
@@ -196,10 +201,11 @@ push-ui: $(env-output-json)
 	aws cloudfront create-invalidation \
 		--distribution-id $(call tf-output,cloudfront_distribution_id) --paths '/*'
 
-# Apply test, write .env.local, then build and upload the UI. Each step is a
-# separate make, so they run in order.
+# Apply test, write .env.local, deploy the Lambda code, then build and upload
+# the UI. Each step is a separate make, so they run in order.
 deploy-test: terraform/environment/test/.apply
 	$(MAKE) .env.local
+	$(MAKE) deploy-lambdas ENV=test
 	$(MAKE) build-ui ENV=test
 	$(MAKE) push-ui ENV=test
 
@@ -218,6 +224,52 @@ create-user: $(if $(and $(EMAIL),$(NAME)),$(env-output-json))
 		--user-attributes file://build/user-attributes.json \
 		--desired-delivery-mediums EMAIL
 	@rm -f build/user-attributes.json
+
+# ============================================
+# Lambdas
+# ============================================
+
+# One per backend/cmd directory. Terraform creates each function from a
+# placeholder; these targets replace its code (DESIGN §9).
+LAMBDAS := holidays users
+LAMBDA_ARCHIVES := $(addprefix dist/archives/,$(addsuffix .zip,$(LAMBDAS)))
+
+# Every Lambda rebuilds when the shared packages or the module change.
+GO_INTERNAL_SOURCES := $(filter-out %_test.go,$(shell find backend/internal -name '*.go'))
+
+# The arm64 binary, named `bootstrap` for the provided.al2023 runtime.
+dist/lambdas/%/bootstrap: $$(filter-out %_test.go,$$(wildcard backend/cmd/$$*/*.go)) \
+		$(GO_INTERNAL_SOURCES) backend/go.mod backend/go.sum
+	@mkdir -p $(@D)
+	cd backend && GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -buildvcs=false \
+		-tags lambda.norpc -ldflags='-s -w' -o ../$@ ./cmd/$*
+
+# A reproducible zip: fixed mode and timestamp, and no extra attributes, so
+# the same binary always gives the same bytes. The binary's timestamp is set
+# back afterwards, so Make doesn't see it as older than its sources.
+.PRECIOUS: dist/lambdas/%/bootstrap
+dist/archives/%.zip: dist/lambdas/%/bootstrap
+	@mkdir -p $(@D)
+	chmod 755 $<
+	touch -t 198001010000 $<
+	rm -f $@
+	cd $(<D) && zip -X -q ../../archives/$*.zip bootstrap
+	touch $< $@
+
+build-lambdas: $(LAMBDA_ARCHIVES)
+
+# Replace one function's code, publish a version, and wait until the update
+# has finished. The function name comes from ENV's Terraform outputs.
+deploy-lambda/%: dist/archives/%.zip $(env-output-json)
+	$(require-env)
+	aws lambda update-function-code \
+		--function-name $(call tf-output,lambda_function_names,.$*) \
+		--zip-file fileb://$< --publish > /dev/null
+	aws lambda wait function-updated-v2 \
+		--function-name $(call tf-output,lambda_function_names,.$*)
+
+# Deploy every Lambda's code to ENV (test or prod).
+deploy-lambdas: $(addprefix deploy-lambda/,$(LAMBDAS))
 
 # Validate one environment, with no backend and no credentials.
 validate-%: terraform/environment/%/.init-local
@@ -285,9 +337,10 @@ dev: install
 		pnpm dev; \
 	fi
 
-# Production build. Lambda binaries join in phase 2.
+# Production build: the UI into build/, and the Lambda zips into dist/.
 build: install
 	pnpm build
+	$(MAKE) build-lambdas
 
 # ============================================
 # Code quality
@@ -356,8 +409,31 @@ api-types-check: install
 test-unit: install
 	pnpm test
 
+# The store tests run against DynamoDB Local in Docker, and fail without it.
+# The container is always stopped, and go test's exit code kept.
+DYNAMODB_LOCAL_IMAGE := amazon/dynamodb-local:3.3.2
+DYNAMODB_LOCAL_NAME := $(PROJECT)-dynamodb-local
+DYNAMODB_LOCAL_PORT := 8765
+DYNAMODB_LOCAL_URL := http://localhost:$(DYNAMODB_LOCAL_PORT)
+# Dummy credentials, and no profile, so the SDK never looks for real ones.
+GO_TEST_ENV := DYNAMODB_ENDPOINT=$(DYNAMODB_LOCAL_URL) AWS_PROFILE= \
+	AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local AWS_REGION=$(AWS_REGION)
+
 test-go:
-	cd backend && go test ./...
+	@docker rm -f $(DYNAMODB_LOCAL_NAME) > /dev/null 2>&1 || true
+	docker run -d --rm -p $(DYNAMODB_LOCAL_PORT):8000 --name $(DYNAMODB_LOCAL_NAME) \
+		$(DYNAMODB_LOCAL_IMAGE) -jar DynamoDBLocal.jar -inMemory -sharedDb > /dev/null
+	@tries=0; until curl -s -o /dev/null $(DYNAMODB_LOCAL_URL); do \
+		tries=`expr $$tries + 1`; \
+		if [ $$tries -ge 60 ]; then \
+			echo "DynamoDB Local didn't start on $(DYNAMODB_LOCAL_URL)."; \
+			docker stop $(DYNAMODB_LOCAL_NAME) > /dev/null; exit 1; \
+		fi; \
+		sleep 0.5; \
+	done
+	cd backend && $(GO_TEST_ENV) go test ./... || status=$$?; \
+	docker stop $(DYNAMODB_LOCAL_NAME) > /dev/null; \
+	exit $${status:-0}
 
 test: lint check validate api-types-check test-unit test-go test-terraform trivy
 
@@ -370,7 +446,7 @@ test-e2e: install
 # ============================================
 
 clean:
-	rm -rf build .svelte-kit node_modules test-results playwright-report blob-report
+	rm -rf build dist .svelte-kit node_modules test-results playwright-report blob-report
 	rm -rf terraform/*/*/.terraform-local
 	rm -f terraform/*/*/.init-local terraform/environment/*/output.json
 
@@ -386,7 +462,8 @@ help:
 	@echo "  make setup-github    Apply the GitHub environments, variables and secrets"
 	@echo ""
 	@echo "Deploy (admin credentials locally, or credentials from the environment in CI):"
-	@echo "  make deploy-test     Apply test, write .env.local, build and upload the UI"
+	@echo "  make deploy-test     Apply test, write .env.local, deploy the Lambdas, build and upload the UI"
+	@echo "  make deploy-lambdas ENV=  Build the Lambda zips and update ENV's functions"
 	@echo "  make env-local       Write .env.local from the test environment's outputs"
 	@echo "  make build-ui ENV=   Build the UI with ENV's (test or prod) Cognito settings"
 	@echo "  make push-ui ENV=    Upload build/ to ENV's bucket and invalidate CloudFront"
@@ -394,7 +471,8 @@ help:
 	@echo ""
 	@echo "Frontend:"
 	@echo "  make dev             Start the Vite dev server; proxies /api to test once .env.local exists"
-	@echo "  make build           Build the UI (with VITE_* from the environment)"
+	@echo "  make build           Build the UI (with VITE_* from the environment) and the Lambda zips"
+	@echo "  make build-lambdas   Build the Lambda binaries and zips into dist/"
 	@echo ""
 	@echo "Testing:"
 	@echo "  make test            Lint, typecheck, validate, Vitest, Go, Terraform tests, Trivy"

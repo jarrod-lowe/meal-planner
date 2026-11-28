@@ -1,7 +1,12 @@
 // Package httpx builds JSON HTTP responses for the API Lambdas.
 package httpx
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/aws/aws-lambda-go/events"
+)
 
 // Response is a protocol-neutral HTTP response, mapped to the Lambda proxy
 // response by the handlers.
@@ -40,4 +45,25 @@ func Error(status int, code, message string) Response {
 	// Marshalling two strings cannot fail.
 	r, _ := JSON(status, errorBody{Error: errorDetail{Code: code, Message: message}})
 	return r
+}
+
+type conflictBody struct {
+	Error   errorDetail `json:"error"`
+	Current any         `json:"current"`
+}
+
+// Conflict builds a 409 in the error shape plus `current`, the stored item
+// (DESIGN §5.3). A nil current (the item is gone) is written as null.
+func Conflict(code, message string, current any) (Response, error) {
+	return JSON(http.StatusConflict, conflictBody{Error: errorDetail{Code: code, Message: message}, Current: current})
+}
+
+// NoContent is a 204 with no body.
+func NoContent() Response {
+	return Response{StatusCode: http.StatusNoContent}
+}
+
+// Proxy converts a Response to an API Gateway proxy response.
+func Proxy(r Response) events.APIGatewayProxyResponse {
+	return events.APIGatewayProxyResponse{StatusCode: r.StatusCode, Headers: r.Headers, Body: r.Body}
 }

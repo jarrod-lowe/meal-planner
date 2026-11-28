@@ -44,10 +44,7 @@ jobs:
         uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: backend/go.mod
-          # No backend/go.sum yet (no dependencies), so there is nothing to
-          # key a cache on. Enable it with `cache-dependency-path:
-          # backend/go.sum` once the first dependency lands.
-          cache: false
+          cache-dependency-path: backend/go.sum
 
       # .terraform-version is the one place the Terraform version is set.
       - name: Read Terraform version

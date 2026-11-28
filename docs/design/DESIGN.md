@@ -429,8 +429,14 @@ holidays.
 | Create item                       | `PutItem` with `attribute_not_exists(PK)`; `version = 1`              |
 | Update item                       | `PutItem` with `version = :expected`; stored `version = expected + 1` |
 | Delete item                       | `DeleteItem` (unconditional; idempotent)                              |
-| Delete a holiday                  | Query the partition, then `BatchWriteItem` deletes in 25s             |
+| Delete a holiday                  | Query; `BatchWriteItem` in 25s, then `TransactWriteItems` (below)     |
 | Create a holiday                  | `TransactWriteItems`: `META` + the creator's `MEMBER`                 |
+
+Deleting a holiday removes everything except `META` and the `MEMBER`s first,
+with `BatchWriteItem` in 25s. Then one `TransactWriteItems` deletes the
+`MEMBER`s and `META` together, so a failure part way through leaves every
+membership, and a member can retry the delete. A transaction holds 100
+actions, so any `MEMBER`s past 99 are batch-deleted just before it.
 
 #### Sizing
 
@@ -499,7 +505,9 @@ All paths are under `/api`, served through CloudFront.
 #### The Lambda additionally checks
 
 - **Membership**, for every route under `/holidays/{holidayId}` except creating
-  one.
+  one. If the caller has no member item, the Lambda checks for `META`: a
+  missing holiday is `404 not-found`, an existing one `403 not-a-member`.
+- **Dates:** `startDate` is on or before `endDate`.
 - **Holiday doesn't exist yet**, before creating one. This is enforced by the
   transaction's conditions.
 - **Last member:** removing a holiday's last member returns `409 last-member`.
@@ -552,14 +560,16 @@ backend/
 ```
 
 - **Runtime:** `provided.al2023`, arm64, 128 MB, 10 s timeout. Built by Make
-  into `build/lambdas/<name>/bootstrap`, zipped, and deployed with
+  into `dist/lambdas/<name>/bootstrap`, zipped, and deployed with
   `aws lambda update-function-code`, following the dnd-planner flow.
-- **Configuration:** environment variables `TABLE_NAME`, plus `USER_POOL_ID`
-  for `users`.
+- **Configuration:** environment variables `TABLE_NAME` for `holidays` and
+  `catalogue`, and `USER_POOL_ID` for `users`.
 - **IAM (least privilege):**
   - `holidays`: `dynamodb:GetItem`, `PutItem`, `DeleteItem`, `Query`,
-    `BatchGetItem`, `BatchWriteItem` and `TransactWriteItems` on the table and
-    `gsi1`.
+    `BatchGetItem`, `BatchWriteItem` and `ConditionCheckItem` on the table,
+    and `Query` on `gsi1`. `TransactWriteItems` isn't an IAM action: each
+    item in a transaction is authorised as its own put, delete or condition
+    check.
   - `catalogue`: `GetItem`, `PutItem` and `Query` on the table.
   - `users`: `cognito-idp:ListUsers` on the pool.
 - **Logging:**
@@ -858,18 +868,19 @@ pieces below.
 
 Make targets follow dnd-planner. Terraform is only ever run through Make.
 
-| Target                                            | Does                                                                 |
-| ------------------------------------------------- | -------------------------------------------------------------------- |
-| `make dev`                                        | Vite dev server; proxies `/api` to the test environment's CloudFront |
-| `make test`                                       | Lint, typecheck, validate, Vitest, Go and Terraform tests, Trivy     |
-| `make test-e2e`                                   | Playwright against the dev server                                    |
-| `make api-types`                                  | Regenerate TS types from `openapi.yaml`                              |
-| `make build`                                      | UI build + Lambda binaries                                           |
-| `make validate` / `make format`                   | Terraform validate/format, Prettier, gofmt                           |
-| `make setup-state` / `setup-aws` / `setup-github` | One-off bootstrap                                                    |
-| `make deploy-test`                                | Terraform apply (test), Lambda code, UI upload, invalidation         |
-| `make build-ui ENV=` / `make push-ui ENV=`        | UI build with an environment's settings; upload and invalidation     |
-| `make create-user ENV= EMAIL= NAME=`              | Admin-create a Cognito user                                          |
+| Target                                            | Does                                                                                            |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `make dev`                                        | Vite dev server; proxies `/api` to the test environment's CloudFront                            |
+| `make test`                                       | Lint, typecheck, validate, Vitest, Go and Terraform tests, Trivy                                |
+| `make test-e2e`                                   | Playwright against the dev server                                                               |
+| `make api-types`                                  | Regenerate TS types from `openapi.yaml`                                                         |
+| `make build`                                      | UI build, then the Lambda binaries and reproducible zips                                        |
+| `make validate` / `make format`                   | Terraform validate/format, Prettier, gofmt                                                      |
+| `make setup-state` / `setup-aws` / `setup-github` | One-off bootstrap                                                                               |
+| `make deploy-test`                                | Terraform apply (test), `.env.local`, Lambda code, UI build, upload and invalidation            |
+| `make deploy-lambdas ENV=`                        | Build the Lambda zips and update the environment's functions (names from its Terraform outputs) |
+| `make build-ui ENV=` / `make push-ui ENV=`        | UI build with an environment's settings; upload and invalidation                                |
+| `make create-user ENV= EMAIL= NAME=`              | Admin-create a Cognito user                                                                     |
 
 ### GitHub Actions
 

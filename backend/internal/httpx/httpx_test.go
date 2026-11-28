@@ -79,3 +79,45 @@ func TestError(t *testing.T) {
 		})
 	}
 }
+
+func TestNoContent(t *testing.T) {
+	got := NoContent()
+	if got.StatusCode != 204 || got.Body != "" {
+		t.Errorf("NoContent() = %+v", got)
+	}
+}
+
+func TestConflict(t *testing.T) {
+	tests := []struct {
+		name     string
+		current  any
+		wantBody string
+	}{
+		{name: "with current", current: map[string]int{"version": 4},
+			wantBody: `{"error":{"code":"version-conflict","message":"changed"},"current":{"version":4}}`},
+		{name: "item gone", current: nil,
+			wantBody: `{"error":{"code":"version-conflict","message":"changed"},"current":null}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Conflict("version-conflict", "changed", tt.current)
+			if err != nil {
+				t.Fatalf("Conflict() error = %v", err)
+			}
+			if got.StatusCode != 409 || got.Body != tt.wantBody {
+				t.Errorf("Conflict() = %d %s, want 409 %s", got.StatusCode, got.Body, tt.wantBody)
+			}
+		})
+	}
+	if _, err := Conflict("version-conflict", "x", math.Inf(1)); err == nil {
+		t.Errorf("Conflict() with an unmarshalable current: error = nil")
+	}
+}
+
+func TestProxy(t *testing.T) {
+	r := Error(403, "not-a-member", "no")
+	got := Proxy(r)
+	if got.StatusCode != 403 || got.Body != r.Body || got.Headers["Content-Type"] != "application/json" {
+		t.Errorf("Proxy() = %+v", got)
+	}
+}

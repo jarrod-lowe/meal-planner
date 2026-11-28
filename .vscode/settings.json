@@ -1,12 +1,14 @@
 {
   "cSpell.words": [
+    "GOARCH",
+    "HSTS",
+    "PITR",
     "dflook",
     "dynamodbav",
     "fromjson",
     "gofmt",
     "gomod",
     "govulncheck",
-    "HSTS",
     "httpx",
     "perishability",
     "pgrep",
@@ -16,6 +18,8 @@
     "tfstate",
     "tftest",
     "tfvars",
-    "wildsea"
+    "tzdata",
+    "wildsea",
+    "zoneinfo"
   ]
 }

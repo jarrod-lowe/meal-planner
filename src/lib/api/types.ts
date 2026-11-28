@@ -24,6 +24,121 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/holidays': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List my holidays */
+    get: operations['listHolidays'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/holidays/{holidayId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get a holiday, with all its items and members */
+    get: operations['getHoliday'];
+    /**
+     * Create (version 0) or update a holiday
+     * @description Creating one also makes the caller its first member.
+     */
+    put: operations['putHoliday'];
+    post?: never;
+    /** Delete a holiday and everything in it */
+    delete: operations['deleteHoliday'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/holidays/{holidayId}/members/{userSub}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Add a member */
+    put: operations['putMember'];
+    post?: never;
+    /** Remove a member (including yourself) */
+    delete: operations['deleteMember'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/holidays/{holidayId}/attendees/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Create (version 0) or update an attendee */
+    put: operations['putAttendee'];
+    post?: never;
+    /**
+     * Delete an attendee
+     * @description The same as the generic delete with kind attendees. It needs its own method, because API Gateway routes the static attendees segment here rather than to {kind}.
+     */
+    delete: operations['deleteAttendee'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/holidays/{holidayId}/{kind}/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Delete one of a holiday's items
+     * @description kind is one of attendees, meals, trips or stock-changes. The Lambda checks it, and accepts only the kinds built so far.
+     */
+    delete: operations['deleteHolidayItem'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/users': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List the users who can be made members */
+    get: operations['listUsers'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -31,6 +146,109 @@ export interface components {
     Health: {
       /** @enum {string} */
       status: 'ok';
+    };
+    Uuid: string;
+    Name: string;
+    /** @description YYYY-MM-DD */
+    LocalDate: string;
+    /** @description An IANA time zone name, such as Pacific/Auckland */
+    TimeZone: string;
+    /** @description 0 to create; otherwise the version the client last read */
+    InputVersion: number;
+    /** @description Starts at 1; the server adds 1 on each update */
+    Version: number;
+    /** @description When the item was last written (ISO 8601, UTC) */
+    UpdatedAt: string;
+    /** @description The sub of the user who last wrote the item */
+    UpdatedBy: string;
+    Holiday: {
+      id: components['schemas']['Uuid'];
+      name: components['schemas']['Name'];
+      timeZone: components['schemas']['TimeZone'];
+      startDate: components['schemas']['LocalDate'];
+      endDate: components['schemas']['LocalDate'];
+      version: components['schemas']['Version'];
+      updatedAt: components['schemas']['UpdatedAt'];
+      updatedBy: components['schemas']['UpdatedBy'];
+    };
+    HolidayInput: {
+      name: components['schemas']['Name'];
+      timeZone: components['schemas']['TimeZone'];
+      startDate: components['schemas']['LocalDate'];
+      endDate: components['schemas']['LocalDate'];
+      version: components['schemas']['InputVersion'];
+    };
+    Member: {
+      userSub: components['schemas']['Uuid'];
+      version: components['schemas']['Version'];
+      updatedAt: components['schemas']['UpdatedAt'];
+      updatedBy: components['schemas']['UpdatedBy'];
+    };
+    /** @description Adding a member is always a create */
+    MemberInput: {
+      /** @enum {integer} */
+      version: 0;
+    };
+    Attendee: {
+      id: components['schemas']['Uuid'];
+      name: components['schemas']['Name'];
+      version: components['schemas']['Version'];
+      updatedAt: components['schemas']['UpdatedAt'];
+      updatedBy: components['schemas']['UpdatedBy'];
+    };
+    AttendeeInput: {
+      name: components['schemas']['Name'];
+      version: components['schemas']['InputVersion'];
+    };
+    /** @description A whole holiday, with its members. Meals, trips and stock changes are typed by the phases that add them. */
+    HolidayFacts: {
+      holiday: components['schemas']['Holiday'];
+      attendees: components['schemas']['Attendee'][];
+      meals: {
+        [key: string]: unknown;
+      }[];
+      trips: {
+        [key: string]: unknown;
+      }[];
+      stockChanges: {
+        [key: string]: unknown;
+      }[];
+      members: components['schemas']['Member'][];
+    };
+    HolidayList: {
+      holidays: components['schemas']['Holiday'][];
+    };
+    /** @description A user who can be made a member. Never includes an email. */
+    User: {
+      sub: components['schemas']['Uuid'];
+      name: string;
+    };
+    UserList: {
+      users: components['schemas']['User'][];
+    };
+    ErrorDetail: {
+      /** @enum {string} */
+      code:
+        | 'validation'
+        | 'not-a-member'
+        | 'not-found'
+        | 'version-conflict'
+        | 'already-exists'
+        | 'last-member'
+        | 'internal';
+      message: string;
+    };
+    /** @description Every error the Lambdas return (DESIGN §5.3) */
+    Error: {
+      error: components['schemas']['ErrorDetail'];
+    };
+    /** @description A version-conflict error, with the item as it's stored now */
+    VersionConflictError: {
+      error: components['schemas']['ErrorDetail'];
+      /** @description The stored item, or null if it has been deleted */
+      current: {
+        [key: string]: unknown;
+      } | null;
     };
   };
   responses: never;
@@ -57,6 +275,649 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['Health'];
+        };
+      };
+    };
+  };
+  listHolidays: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The holidays the caller is a member of */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HolidayList'];
+        };
+      };
+      /** @description Missing or invalid token (from API Gateway) */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Anything else (internal) */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  getHoliday: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        holidayId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The holiday */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HolidayFacts'];
+        };
+      };
+      /** @description The request failed validation (validation) */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Missing or invalid token (from API Gateway) */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The caller isn't a member of the holiday (not-a-member) */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description The holiday doesn't exist (not-found) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Anything else (internal) */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  putHoliday: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        holidayId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HolidayInput'];
+      };
+    };
+    responses: {
+      /** @description The holiday as stored */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Holiday'];
+        };
+      };
+      /** @description The request failed validation (validation) */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Missing or invalid token (from API Gateway) */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The caller isn't a member of the holiday (not-a-member) */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description The holiday doesn't exist (not-found) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description The stored version differs (version-conflict, with the current item), or a create found the item already exists (already-exists) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json':
+            components['schemas']['VersionConflictError'] | components['schemas']['Error'];
+        };
+      };
+      /** @description Anything else (internal) */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  deleteHoliday: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        holidayId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Deleted (also when it didn't exist) */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The request failed validation (validation) */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Missing or invalid token (from API Gateway) */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The caller isn't a member of the holiday (not-a-member) */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description The holiday doesn't exist (not-found) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Anything else (internal) */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  putMember: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        holidayId: components['schemas']['Uuid'];
+        /** @description The member's Cognito sub */
+        userSub: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MemberInput'];
+      };
+    };
+    responses: {
+      /** @description The member as stored */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Member'];
+        };
+      };
+      /** @description The request failed validation (validation) */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Missing or invalid token (from API Gateway) */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The caller isn't a member of the holiday (not-a-member) */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description The holiday doesn't exist (not-found) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description The stored version differs (version-conflict, with the current item), or a create found the item already exists (already-exists) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json':
+            components['schemas']['VersionConflictError'] | components['schemas']['Error'];
+        };
+      };
+      /** @description Anything else (internal) */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  deleteMember: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        holidayId: components['schemas']['Uuid'];
+        /** @description The member's Cognito sub */
+        userSub: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Deleted (also when it didn't exist) */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The request failed validation (validation) */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Missing or invalid token (from API Gateway) */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The caller isn't a member of the holiday (not-a-member) */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description The holiday doesn't exist (not-found) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description That's the holiday's last member (last-member) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Anything else (internal) */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  putAttendee: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        holidayId: components['schemas']['Uuid'];
+        id: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AttendeeInput'];
+      };
+    };
+    responses: {
+      /** @description The attendee as stored */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Attendee'];
+        };
+      };
+      /** @description The request failed validation (validation) */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Missing or invalid token (from API Gateway) */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The caller isn't a member of the holiday (not-a-member) */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description The holiday doesn't exist (not-found) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description The stored version differs (version-conflict, with the current item), or a create found the item already exists (already-exists) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json':
+            components['schemas']['VersionConflictError'] | components['schemas']['Error'];
+        };
+      };
+      /** @description Anything else (internal) */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  deleteAttendee: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        holidayId: components['schemas']['Uuid'];
+        id: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Deleted (also when it didn't exist) */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The request failed validation (validation) */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Missing or invalid token (from API Gateway) */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The caller isn't a member of the holiday (not-a-member) */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description The holiday doesn't exist (not-found) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Anything else (internal) */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  deleteHolidayItem: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        holidayId: components['schemas']['Uuid'];
+        kind: string;
+        id: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Deleted (also when it didn't exist) */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The request failed validation (validation) */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Missing or invalid token (from API Gateway) */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The caller isn't a member of the holiday (not-a-member) */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description The holiday doesn't exist (not-found) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Anything else (internal) */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  listUsers: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Every user's sub and name */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UserList'];
+        };
+      };
+      /** @description Missing or invalid token (from API Gateway) */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Anything else (internal) */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
         };
       };
     };

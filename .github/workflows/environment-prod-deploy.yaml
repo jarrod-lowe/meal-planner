@@ -1,7 +1,8 @@
 name: Environment prod - deploy
 
 # On merge to main: the PR checks, then apply the prod plan approved on the
-# merged PR, then build and upload the UI with prod's settings.
+# merged PR, then deploy the Lambda code, then build and upload the UI with
+# prod's settings.
 
 on:
   push:
@@ -63,16 +64,6 @@ jobs:
             region=${{ vars.AWS_REGION }}
           auto_approve: ${{ github.event_name == 'workflow_dispatch' }}
 
-      # The pnpm version comes from `packageManager` in package.json.
-      - name: Set up pnpm
-        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-
-      - name: Set up Node
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-
       # .terraform-version is the one place the Terraform version is set.
       - name: Read Terraform version
         id: terraform-version
@@ -88,10 +79,35 @@ jobs:
           terraform_version: ${{ steps.terraform-version.outputs.version }}
           terraform_wrapper: false
 
-      # Make inits prod against the real backend (the apply action used its
-      # own data directory, so there's no .terraform yet), writes
-      # output.json, and builds with prod's Cognito settings. CI=true makes
-      # Make use the credentials above rather than a profile.
+      # setup-go reads the `toolchain` line in backend/go.mod.
+      - name: Set up Go
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      # Make builds the Lambda zips, inits prod against the real backend (the
+      # apply action used its own data directory, so there's no .terraform
+      # yet), writes output.json, and updates each function's code. CI=true
+      # makes Make use the credentials above rather than a profile.
+      - name: Deploy the Lambdas
+        run: make deploy-lambdas ENV=prod STATE_BUCKET="$STATE_BUCKET"
+        env:
+          CI: true
+          STATE_BUCKET: ${{ vars.STATE_BUCKET }}
+
+      # The pnpm version comes from `packageManager` in package.json.
+      - name: Set up pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # Make refreshes output.json (prod is already initialised by the Lambda
+      # step) and builds with prod's Cognito settings.
       - name: Build the UI
         run: make build-ui ENV=prod STATE_BUCKET="$STATE_BUCKET"
         env:

@@ -6,8 +6,9 @@ node_modules/
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-# Build output (UI build and Go Lambda binaries)
+# Build output: the UI (build/) and the Go Lambda zips (dist/)
 build/
+dist/
 
 # Playwright
 test-results/

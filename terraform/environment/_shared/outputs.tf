@@ -40,3 +40,13 @@ output "api_id" {
   description = "API Gateway REST API ID"
   value       = module.meal_planner.api_id
 }
+
+output "table_name" {
+  description = "DynamoDB table name"
+  value       = module.meal_planner.table_name
+}
+
+output "lambda_function_names" {
+  description = "Lambda function names, by Lambda (for make deploy-lambdas)"
+  value       = module.meal_planner.lambda_function_names
+}
