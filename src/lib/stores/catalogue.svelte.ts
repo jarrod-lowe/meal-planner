@@ -34,9 +34,11 @@ export type CatalogueMutation = {
     label?: string;
     /**
      * The version the caller's copy was read at (a form seeded from the
-     * store). If the store now shows another version, someone else changed
-     * the item meanwhile, so this version is sent instead: the server answers
-     * with a version conflict rather than taking the stale copy.
+     * store). It's sent exactly as given, instead of the confirmed version,
+     * even when writes queued ahead of this one move that on: if the item
+     * changed since, the server answers with a version conflict rather than
+     * taking the stale copy. The caller waits for its own writes to settle
+     * (and reconciles) before saving, so it doesn't conflict with itself.
      */
     expectedVersion?: number;
   };
@@ -62,12 +64,12 @@ interface Place {
 }
 
 /**
- * What the queue sends: a PUT of the fields (at `staleVersion`, when the
- * caller's copy is out of date), a DELETE that hides the item, or a PUT that
- * shows it again (of the stored fields, read when it's sent).
+ * What the queue sends: a PUT of the fields (at `expectedVersion`, when the
+ * caller gives one), a DELETE that hides the item, or a PUT that shows it
+ * again (of the stored fields, read when it's sent).
  */
 type Request =
-  | (CatalogueMutation & { readonly staleVersion?: number })
+  | CatalogueMutation
   | { readonly kind: CatalogueKind; readonly hide: true }
   | { readonly kind: CatalogueKind; readonly show: true };
 
@@ -140,7 +142,7 @@ export class CatalogueStore {
         send: ({ context, confirmed }, write, version) =>
           this.#send(write.mutation, context, version, confirmed),
         version: (_lane, { mutation }) =>
-          'staleVersion' in mutation ? mutation.staleVersion : undefined,
+          'expectedVersion' in mutation ? mutation.expectedVersion : undefined,
         fetchStored: async ({ context }) =>
           find(await this.#api.get('/catalogue'), context.kind, context.id)
       }
@@ -194,15 +196,7 @@ export class CatalogueStore {
    */
   async mutate(mutation: CatalogueMutation): Promise<MutationResult> {
     this.#requireLoaded();
-    const { expectedVersion } = mutation;
-    // While the caller's own writes are pending, the store shows the version
-    // they started from, so a copy read since then still matches it.
-    const shown = find(this, mutation.kind, mutation.id);
-    const request =
-      shown && expectedVersion !== undefined && expectedVersion !== shown.version
-        ? { ...mutation, staleVersion: expectedVersion }
-        : mutation;
-    return this.#enqueue(request, mutation.id, mutation.fields, mutation.label);
+    return this.#enqueue(mutation, mutation.id, mutation.fields, mutation.label);
   }
 
   /**

@@ -278,20 +278,35 @@ describe('CatalogueStore.mutate', () => {
     expect(toasts.items[0]?.message).toBe(t('mutate.conflict', { item: 'Pancakes' }));
   });
 
-  it('sends the confirmed version when the expected version is the one shown', async () => {
+  it('sends the expected version as given when it is the one shown', async () => {
     const { store, reply, writes } = await loaded();
     const fields = strip(pancakes()) as Omit<Recipe, 'id' | 'version' | 'updatedAt' | 'updatedBy'>;
+    reply(`PUT ${recipePath(pancakesId)}`, json(200, { ...pancakes(), notes: 'Mine', version: 2 }));
+
+    const result = await store.mutate({
+      kind: 'recipes',
+      id: pancakesId,
+      fields: { ...fields, notes: 'Mine' },
+      expectedVersion: 1
+    });
+
+    expect(result).toEqual({ outcome: 'saved' });
+    expect(writes()[0]?.body).toMatchObject({ notes: 'Mine', version: 1 });
+  });
+
+  it('never upgrades the expected version to one a queued hide brings back', async () => {
+    const { store, reply, writes } = await loaded();
+    const fields = strip(pancakes()) as Omit<Recipe, 'id' | 'version' | 'updatedAt' | 'updatedBy'>;
+    // Someone else's edit lands before the hide, so the hide's fetch brings back version 3.
+    const theirs = { ...pancakes(), notes: 'Theirs', deleted: true, version: 3 };
     reply(`DELETE ${recipePath(pancakesId)}`, noContent());
-    reply(
-      'GET /catalogue',
-      json(200, { recipes: [{ ...pancakes(), deleted: true, version: 2 }], ingredients: [] })
-    );
+    reply('GET /catalogue', json(200, { recipes: [theirs], ingredients: [] }));
     reply(
       `PUT ${recipePath(pancakesId)}`,
-      json(200, { ...pancakes(), notes: 'Mine', deleted: true, version: 3 })
+      json(409, { error: { code: 'version-conflict', message: 'x' }, current: theirs })
     );
 
-    // Queued behind the caller's own hide, which bumps the version to 2.
+    // A save of a copy read at version 1, queued behind the hide.
     const hidden = store.hide('recipes', pancakesId);
     const saved = store.mutate({
       kind: 'recipes',
@@ -301,8 +316,9 @@ describe('CatalogueStore.mutate', () => {
     });
 
     await expect(hidden).resolves.toEqual({ outcome: 'saved' });
-    await expect(saved).resolves.toEqual({ outcome: 'saved' });
-    expect(writes()[1]?.body).toMatchObject({ notes: 'Mine', version: 2 });
+    await expect(saved).resolves.toEqual({ outcome: 'conflict' });
+    expect(writes()[1]?.body).toMatchObject({ notes: 'Mine', version: 1 });
+    expect(store.recipes).toEqual([theirs]);
   });
 
   it('names the item on a conflict, keeps the current copy, and offers a refresh', async () => {

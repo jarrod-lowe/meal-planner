@@ -216,6 +216,40 @@ describe('RecipeEditor', () => {
     expect(document.activeElement).toBe(button(t('recipe.hide')));
   });
 
+  it('blocks Save and Hide while a hide is pending, then saves the old base and conflicts', async () => {
+    const { store, user, reply, writes, toasts } = await setup(pancakes.id);
+    const theirs = { ...pancakes, notes: 'Theirs.', deleted: true, version: 3 };
+    let answer: (response: Response) => void = () => undefined;
+    reply(
+      `DELETE /catalogue/recipes/${pancakes.id}`,
+      new Promise<Response>((resolve) => (answer = resolve))
+    );
+    reply('GET /catalogue', json(200, { recipes: [theirs], ingredients: [] }));
+
+    await user.type(screen.getByLabelText(t('recipe.notes')), ' Mine.');
+    await user.click(button(t('recipe.hide')));
+    const save = button(t('recipe.save'));
+    const visibility = button(t('recipe.showAgain'));
+    expect(save.getAttribute('aria-disabled')).toBe('true');
+    expect(visibility.getAttribute('aria-disabled')).toBe('true');
+    await user.click(save);
+    await user.click(visibility);
+    expect(writes().map((w) => w.method)).toEqual(['DELETE']);
+
+    answer(noContent());
+    expect(await screen.findByText(t('recipe.changedElsewhere'))).toBeTruthy();
+    expect(button(t('recipe.save')).getAttribute('aria-disabled')).toBe('false');
+
+    reply(
+      `PUT /catalogue/recipes/${pancakes.id}`,
+      apiError(409, 'version-conflict', 'conflict', theirs)
+    );
+    await user.click(button(t('recipe.save')));
+    expect(writes()[1]?.body).toMatchObject({ notes: 'Whisk. Mine.', version: 1 });
+    expect(toasts.items[0]?.message).toBe(t('mutate.conflict', { item: 'Pancakes' }));
+    expect(store.recipes[0]).toEqual(theirs);
+  });
+
   it('saves an edited draft after hiding, at the version the hide left', async () => {
     const { user, reply, writes, toasts } = await setup(pancakes.id);
     reply(`DELETE /catalogue/recipes/${pancakes.id}`, noContent());

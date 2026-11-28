@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
+  import { SvelteSet } from 'svelte/reactivity';
   import { v7 as uuidv7 } from 'uuid';
   import { COMMON_INGREDIENTS } from '#lib/catalogue/common.js';
   import {
@@ -30,6 +31,12 @@
   let editingId = $state<string | null>(null);
   /** The version the edit form was seeded from: sent as the expected version. */
   let editingVersion: number | undefined;
+  /**
+   * Ingredients with a write from here in flight. Their Edit, Hide and Show
+   * wait for it, so an edit is never seeded from a version a pending write
+   * moves on (it would conflict with itself).
+   */
+  const pending = new SvelteSet<string>();
   let searchField = $state<HTMLInputElement>();
   let addButton = $state<HTMLButtonElement>();
 
@@ -72,7 +79,18 @@
     addButton?.focus();
   }
 
+  /** Runs a write on the item, marking it pending meanwhile. */
+  async function track<T>(id: string, write: () => Promise<T>): Promise<T> {
+    pending.add(id);
+    try {
+      return await write();
+    } finally {
+      pending.delete(id);
+    }
+  }
+
   function startEdit(item: Ingredient) {
+    if (pending.has(item.id)) return;
     editingId = item.id;
     editingVersion = item.version;
   }
@@ -89,19 +107,23 @@
       fields.shopSection !== item.shopSection;
     const done = finishEdit(item.id);
     if (changed) {
-      await store.mutate({
-        kind: 'ingredients',
-        id: item.id,
-        fields: { ...fields, deleted: item.deleted },
-        expectedVersion: editingVersion
-      });
+      const expectedVersion = editingVersion;
+      await track(item.id, () =>
+        store.mutate({
+          kind: 'ingredients',
+          id: item.id,
+          fields: { ...fields, deleted: item.deleted },
+          expectedVersion
+        })
+      );
     }
     await done;
   }
 
   async function hide(item: Ingredient) {
+    if (pending.has(item.id)) return;
     const done = showHidden ? focusById(toggleButtonId(item.id)) : focusSearch();
-    await store.hide('ingredients', item.id);
+    await track(item.id, () => store.hide('ingredients', item.id));
     await done;
   }
 
@@ -111,8 +133,9 @@
   }
 
   async function show(item: Ingredient) {
+    if (pending.has(item.id)) return;
     const done = focusById(toggleButtonId(item.id));
-    await store.show('ingredients', item.id);
+    await track(item.id, () => store.show('ingredients', item.id));
     await done;
   }
 </script>
@@ -218,6 +241,7 @@
                     id={editButtonId(item.id)}
                     aria-label={t('ingredients.editLabel', names)}
                     onclick={() => startEdit(item)}
+                    aria-disabled={pending.has(item.id)}
                   >
                     {t('ingredients.edit')}
                   </button>
@@ -227,6 +251,7 @@
                       id={toggleButtonId(item.id)}
                       aria-label={t('ingredients.showAgainLabel', names)}
                       onclick={() => show(item)}
+                      aria-disabled={pending.has(item.id)}
                     >
                       {t('ingredients.showAgain')}
                     </button>
@@ -236,6 +261,7 @@
                       id={toggleButtonId(item.id)}
                       aria-label={t('ingredients.hideLabel', names)}
                       onclick={() => hide(item)}
+                      aria-disabled={pending.has(item.id)}
                     >
                       {t('ingredients.hide')}
                     </button>
@@ -383,5 +409,9 @@
     background: var(--color-primary);
     border-color: var(--color-primary);
     font-weight: var(--font-weight-bold);
+  }
+
+  button[aria-disabled='true'] {
+    cursor: progress;
   }
 </style>

@@ -76,6 +76,8 @@
   let base = $state.raw(untrack(() => ({ version: existing?.version, fields: saveable(draft) })));
   /** This editor's own saves, hides and shows in flight: they change the version too. */
   let ownWrites = $state(0);
+  /** Save, Hide and Show wait for those, so a save is never sent at a base a pending write moves on. */
+  const busy = $derived(ownWrites > 0);
 
   const dirty = $derived(saveable(draft) !== base.fields);
   const changedElsewhere = $derived(
@@ -173,7 +175,7 @@
   }
 
   async function save() {
-    if (saving) return;
+    if (busy) return;
     submitted = true;
     saved = false;
     const found = recipeErrors(draft);
@@ -222,6 +224,7 @@
 
   /** Hides or shows the recipe; the version it leaves is the draft's base, if the content still matches. */
   async function setVisibility(write: () => Promise<MutationResult>) {
+    if (busy) return;
     const focused = focusElement(fieldId('visibility'));
     ownWrites++;
     try {
@@ -263,11 +266,23 @@
       <h1>{existing ? existing.name : t('recipe.newHeading')}</h1>
       {#if existing}
         {#if existing.deleted}
-          <button type="button" id={fieldId('visibility')} onclick={show}>
+          <button
+            type="button"
+            id={fieldId('visibility')}
+            onclick={show}
+            aria-disabled={busy}
+            aria-busy={busy && !saving}
+          >
             {t('recipe.showAgain')}
           </button>
         {:else}
-          <button type="button" id={fieldId('visibility')} onclick={hide}>
+          <button
+            type="button"
+            id={fieldId('visibility')}
+            onclick={hide}
+            aria-disabled={busy}
+            aria-busy={busy && !saving}
+          >
             {t('recipe.hide')}
           </button>
         {/if}
@@ -447,13 +462,7 @@
     </div>
 
     <div class="actions">
-      <button
-        type="button"
-        class="primary"
-        onclick={save}
-        aria-disabled={saving}
-        aria-busy={saving}
-      >
+      <button type="button" class="primary" onclick={save} aria-disabled={busy} aria-busy={saving}>
         {saving ? t('recipe.saving') : t('recipe.save')}
       </button>
       <p role="status" class="saved">{saved ? t('recipe.saved') : ''}</p>

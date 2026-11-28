@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { CommonIngredient } from '#lib/catalogue/search.js';
 import { t } from '#lib/i18n/en.js';
 import type { Ingredient } from '#lib/stores/catalogue.svelte.js';
@@ -102,6 +102,37 @@ describe('IngredientList', () => {
     ).toBeTruthy();
     expect(document.activeElement).toBe(
       button(t('ingredients.editLabel', { name: 'Caster sugar', unit: 'g' }))
+    );
+  });
+
+  it('blocks Edit and Hide on an ingredient while its write is pending', async () => {
+    const { user, reply, writes } = await setup();
+    let answer: (response: Response) => void = () => undefined;
+    reply(
+      `PUT /catalogue/ingredients/${sugar.id}`,
+      new Promise<Response>((resolve) => (answer = resolve))
+    );
+
+    await user.click(button(t('ingredients.editLabel', { name: 'Sugar', unit: 'g' })));
+    const name = screen.getByLabelText(t('ingredientForm.name'));
+    await user.clear(name);
+    await user.type(name, 'Caster sugar{Enter}');
+    const edit = button(t('ingredients.editLabel', { name: 'Caster sugar', unit: 'g' }));
+    const hide = button(t('ingredients.hideLabel', { name: 'Caster sugar', unit: 'g' }));
+    expect(edit.getAttribute('aria-disabled')).toBe('true');
+    expect(hide.getAttribute('aria-disabled')).toBe('true');
+    await user.click(edit);
+    await user.click(hide);
+    expect(screen.queryByRole('form')).toBeNull();
+    expect(writes()).toHaveLength(1);
+
+    answer(json(200, { ...sugar, name: 'Caster sugar', version: 2 }));
+    await vi.waitFor(() =>
+      expect(
+        button(t('ingredients.editLabel', { name: 'Caster sugar', unit: 'g' })).getAttribute(
+          'aria-disabled'
+        )
+      ).toBe('false')
     );
   });
 
