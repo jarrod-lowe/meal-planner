@@ -3,7 +3,7 @@
 // `already-exists` is our own earlier attempt if the stored holiday matches.
 import { api, ApiError, type ApiClient, type Schemas } from '#lib/api/client.js';
 import { session } from './session.svelte.js';
-import { withRetry, type RetryOptions } from './holiday.svelte.js';
+import { withRetry, type RetryOptions } from './mutation-queue.js';
 
 export type Holiday = Schemas['Holiday'];
 

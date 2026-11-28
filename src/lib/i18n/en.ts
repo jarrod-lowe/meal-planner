@@ -91,6 +91,7 @@ export const en = {
   },
   mutate: {
     refreshHoliday: 'Refresh holiday',
+    refreshCatalogue: 'Refresh recipes and ingredients',
     conflict:
       'Someone else changed {item}, so your change wasn’t saved. You’re seeing their version.',
     conflictDeleted: 'Someone else deleted {item}, so your change wasn’t saved.',
@@ -99,8 +100,13 @@ export const en = {
     items: {
       holiday: 'the holiday',
       attendees: 'an attendee',
-      members: 'a member'
+      members: 'a member',
+      recipes: 'a recipe',
+      ingredients: 'an ingredient'
     }
+  },
+  catalogue: {
+    refreshFailed: 'Couldn’t refresh the recipes and ingredients. Showing what was loaded before.'
   },
   home: {
     title: 'Home · Meal planner',
