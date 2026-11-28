@@ -225,9 +225,10 @@ create-user: $(if $(and $(EMAIL),$(NAME)),$(env-output-json))
 		--desired-delivery-mediums EMAIL
 	@rm -f build/user-attributes.json
 
-# Write a sample holiday to test: the user (by EMAIL) as its member, and four
-# attendees. The items are built by scripts/seed-test.jq and written in one
-# transaction, each only if it doesn't exist yet. Then write the sample
+# Write a sample holiday to test: the user (by EMAIL) as its member, four
+# attendees and a few meals using the sample catalogue's recipes. The items
+# are built by scripts/seed-test.jq and written in one transaction, each only
+# if it doesn't exist yet. Then write the sample
 # catalogue from scripts/seed-catalogue.json, which has fixed IDs: one put per
 # item, each only if it doesn't exist, so running it again adds nothing new
 # (a transaction would fail as a whole once any item exists).
@@ -238,10 +239,11 @@ seed-test: $(if $(EMAIL),terraform/environment/test/output.json)
 	aws cognito-idp admin-get-user \
 		--user-pool-id $(call tf-output,user_pool_id) \
 		--username "$(EMAIL)" > build/seed-test-user.json
-	od -An -N80 -tx1 /dev/urandom > build/seed-test-random.txt
+	od -An -N240 -tx1 /dev/urandom > build/seed-test-random.txt
 	jq -n --arg table "$(call tf-output,table_name)" \
 		--slurpfile user build/seed-test-user.json \
 		--rawfile random build/seed-test-random.txt \
+		--slurpfile catalogue scripts/seed-catalogue.json \
 		-f scripts/seed-test.jq > build/seed-test.json
 	aws dynamodb transact-write-items --transact-items file://build/seed-test.json
 	jq --arg table "$(call tf-output,table_name)" \
