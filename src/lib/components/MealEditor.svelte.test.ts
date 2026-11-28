@@ -505,7 +505,9 @@ describe('MealEditor, creating a recipe on the way', () => {
         headers: { 'Content-Type': 'application/json' }
       })
     );
-    await vi.waitFor(() => expect(button(t('meal.save')).getAttribute('aria-disabled')).not.toBe('true'));
+    await vi.waitFor(() =>
+      expect(button(t('meal.save')).getAttribute('aria-disabled')).not.toBe('true')
+    );
     await vi.waitFor(() => expect(screen.getByRole('option', option)).toBeTruthy());
   });
 
