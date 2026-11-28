@@ -63,11 +63,13 @@ interface Place {
 
 /**
  * What the queue sends: a PUT of the fields (at `staleVersion`, when the
- * caller's copy is out of date), or a DELETE that hides the item.
+ * caller's copy is out of date), a DELETE that hides the item, or a PUT that
+ * shows it again (of the stored fields, read when it's sent).
  */
 type Request =
   | (CatalogueMutation & { readonly staleVersion?: number })
-  | { readonly kind: CatalogueKind; readonly hide: true };
+  | { readonly kind: CatalogueKind; readonly hide: true }
+  | { readonly kind: CatalogueKind; readonly show: true };
 
 interface Lists {
   readonly recipes: readonly Recipe[];
@@ -135,8 +137,10 @@ export class CatalogueStore {
           }) as Item,
         show: ({ context }, item) =>
           this.#setLists(put(this.#lists(), context.kind, context.id, item)),
-        send: ({ context }, write, version) => this.#send(write.mutation, context, version),
-        version: (_lane, { mutation }) => ('hide' in mutation ? undefined : mutation.staleVersion),
+        send: ({ context, confirmed }, write, version) =>
+          this.#send(write.mutation, context, version, confirmed),
+        version: (_lane, { mutation }) =>
+          'staleVersion' in mutation ? mutation.staleVersion : undefined,
         fetchStored: async ({ context }) =>
           find(await this.#api.get('/catalogue'), context.kind, context.id)
       }
@@ -214,11 +218,14 @@ export class CatalogueStore {
     return this.#enqueue({ kind, hide: true }, id, { deleted: true });
   }
 
-  /** Shows a hidden item again: a PUT of its fields with `deleted: false`. */
+  /**
+   * Shows a hidden item again: a PUT with `deleted: false`. It changes only
+   * the visibility, so the body is the stored copy's fields as they are when
+   * it's sent: a hide queued ahead of it may bring back someone else's edit.
+   */
   async show(kind: CatalogueKind, id: string): Promise<MutationResult> {
-    const item = this.#shown(kind, id);
-    const fields = { ...fieldsOf(item), deleted: false } as CatalogueFields<typeof kind>;
-    return this.#enqueue({ kind, id, fields } as CatalogueMutation, id, fields);
+    this.#shown(kind, id);
+    return this.#enqueue({ kind, show: true }, id, { deleted: false });
   }
 
   #requireLoaded() {
@@ -288,14 +295,36 @@ export class CatalogueStore {
     }
   }
 
-  /** One attempt at the request. Resolves with the stored item. */
-  async #send(request: Request, place: Place, version: number): Promise<Item | undefined> {
+  /** One attempt at the request, given the stored copy as last known. Resolves with the stored item. */
+  async #send(
+    request: Request,
+    place: Place,
+    version: number,
+    confirmed: Item | undefined
+  ): Promise<Item | undefined> {
     const api = this.#api;
     const { kind, id } = place;
     if ('hide' in request) {
       if (kind === 'recipes') await api.del('/catalogue/recipes/{id}', { id });
       else await api.del('/catalogue/ingredients/{id}', { id });
       return find(await api.get('/catalogue'), kind, id);
+    }
+    if ('show' in request) {
+      // The queue sends an edit only of an item it has a stored copy of.
+      if (!confirmed) throw new Error(`no stored ${kind} item ${id} to show`);
+      const fields = { ...fieldsOf(confirmed), deleted: false, version };
+      if (kind === 'recipes') {
+        return api.put(
+          '/catalogue/recipes/{id}',
+          { id },
+          fields as CatalogueFields<'recipes'> & { version: number }
+        );
+      }
+      return api.put(
+        '/catalogue/ingredients/{id}',
+        { id },
+        fields as CatalogueFields<'ingredients'> & { version: number }
+      );
     }
     if (request.kind === 'recipes') {
       return api.put('/catalogue/recipes/{id}', { id }, { ...request.fields, version });

@@ -220,15 +220,16 @@
     if (changedElsewhere && !dirty) untrack(reseed);
   });
 
-  /** Hides or shows the recipe; the version it leaves is the draft's base, if that was current. */
+  /** Hides or shows the recipe; the version it leaves is the draft's base, if the content still matches. */
   async function setVisibility(write: () => Promise<MutationResult>) {
     const focused = focusElement(fieldId('visibility'));
-    const before = existing?.version;
     ownWrites++;
     try {
       const result = await write();
-      if (result.outcome === 'saved' && base.version === before) {
-        base = { ...base, version: existing?.version };
+      // The hide's fetch may bring back someone else's change: then the base
+      // stays, and the draft reconciles it (at once if untouched, or via Load latest).
+      if (result.outcome === 'saved' && existing && saveable(seed(existing)) === base.fields) {
+        base = { ...base, version: existing.version };
       }
     } finally {
       ownWrites--;

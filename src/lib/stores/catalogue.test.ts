@@ -454,6 +454,41 @@ describe('CatalogueStore hide and show', () => {
     expect(toasts.items).toEqual([]);
   });
 
+  it('builds a show queued behind a hide from the copy the hide brought back', async () => {
+    const { store, reply, writes } = await loaded();
+    reply(`DELETE ${ingredientPath(flourId)}`, noContent());
+    // The hide keeps someone else's concurrent edit, and the fetch after it brings it back.
+    const theirs = { ...flour(), name: 'Plain flour', unit: 'kg', deleted: true, version: 7 };
+    reply('GET /catalogue', json(200, { ...catalogue(), ingredients: [theirs] }));
+    reply(`PUT ${ingredientPath(flourId)}`, json(200, { ...theirs, deleted: false, version: 8 }));
+
+    const hiding = store.hide('ingredients', flourId);
+    const showing = store.show('ingredients', flourId);
+    await hiding;
+    await expect(showing).resolves.toEqual({ outcome: 'saved' });
+
+    expect(writes()[1]?.body).toEqual({ ...strip(theirs), deleted: false, version: 7 });
+    expect(store.ingredients[0]).toMatchObject({ name: 'Plain flour', unit: 'kg', deleted: false });
+  });
+
+  it('builds a recipe’s show queued behind a hide from the copy the hide brought back', async () => {
+    const { store, reply, writes } = await loaded();
+    reply(`DELETE ${recipePath(pancakesId)}`, noContent());
+    const theirs = { ...pancakes(), servings: 9, notes: 'Theirs', deleted: true, version: 4 };
+    reply('GET /catalogue', json(200, { ...catalogue(), recipes: [theirs] }));
+    reply(`PUT ${recipePath(pancakesId)}`, json(200, { ...theirs, deleted: false, version: 5 }));
+
+    const hiding = store.hide('recipes', pancakesId);
+    const showing = store.show('recipes', pancakesId);
+    // Until then, only the visibility changes on what the store shows.
+    expect(store.recipes[0]).toEqual({ ...pancakes(), deleted: false });
+    await hiding;
+    await expect(showing).resolves.toEqual({ outcome: 'saved' });
+
+    expect(writes()[1]?.body).toEqual({ ...strip(theirs), deleted: false, version: 4 });
+    expect(store.recipes[0]).toMatchObject({ servings: 9, notes: 'Theirs', deleted: false });
+  });
+
   it('retries a hide whose follow-up fetch fails, since DELETE is idempotent', async () => {
     const { store, reply, writes } = await loaded();
     reply(`DELETE ${ingredientPath(flourId)}`, noContent(), noContent());

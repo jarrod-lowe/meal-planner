@@ -216,6 +216,64 @@ describe('RecipeEditor', () => {
     expect(document.activeElement).toBe(button(t('recipe.hide')));
   });
 
+  it('saves an edited draft after hiding, at the version the hide left', async () => {
+    const { user, reply, writes, toasts } = await setup(pancakes.id);
+    reply(`DELETE /catalogue/recipes/${pancakes.id}`, noContent());
+    reply(
+      'GET /catalogue',
+      json(200, { recipes: [{ ...pancakes, deleted: true, version: 2 }], ingredients: [] })
+    );
+    reply(`PUT /catalogue/recipes/${pancakes.id}`, stored);
+
+    await user.type(screen.getByLabelText(t('recipe.notes')), ' Mine.');
+    await user.click(button(t('recipe.hide')));
+    expect(await screen.findByText(t('recipe.hiddenNote'))).toBeTruthy();
+    expect(screen.queryByText(t('recipe.changedElsewhere'))).toBeNull();
+    await user.click(button(t('recipe.save')));
+
+    expect(writes()[1]?.body).toMatchObject({ notes: 'Whisk. Mine.', deleted: true, version: 2 });
+    expect(await screen.findByText(t('recipe.saved'))).toBeTruthy();
+    expect(toasts.items).toHaveLength(0);
+  });
+
+  it('doesn’t take on someone else’s change that a hide brings back into an edited draft', async () => {
+    const { store, user, reply, writes, toasts } = await setup(pancakes.id);
+    const theirs = { ...pancakes, servings: 8, notes: 'Theirs.', deleted: true, version: 3 };
+    reply(`DELETE /catalogue/recipes/${pancakes.id}`, noContent());
+    reply('GET /catalogue', json(200, { recipes: [theirs], ingredients: [] }));
+
+    await user.type(screen.getByLabelText(t('recipe.notes')), ' Mine.');
+    await user.click(button(t('recipe.hide')));
+    expect(await screen.findByText(t('recipe.changedElsewhere'))).toBeTruthy();
+    expect(screen.getByLabelText<HTMLTextAreaElement>(t('recipe.notes')).value).toBe(
+      'Whisk. Mine.'
+    );
+
+    reply(
+      `PUT /catalogue/recipes/${pancakes.id}`,
+      apiError(409, 'version-conflict', 'conflict', theirs)
+    );
+    await user.click(button(t('recipe.save')));
+    expect(writes()[1]?.body).toMatchObject({ notes: 'Whisk. Mine.', version: 1 });
+    expect(toasts.items[0]?.message).toBe(t('mutate.conflict', { item: 'Pancakes' }));
+    expect(store.recipes[0]).toEqual(theirs);
+  });
+
+  it('takes on someone else’s change that a hide brings back into an untouched draft', async () => {
+    const { user, reply } = await setup(pancakes.id);
+    const theirs = { ...pancakes, servings: 8, notes: 'Theirs.', deleted: true, version: 3 };
+    reply(`DELETE /catalogue/recipes/${pancakes.id}`, noContent());
+    reply('GET /catalogue', json(200, { recipes: [theirs], ingredients: [] }));
+
+    await user.click(button(t('recipe.hide')));
+
+    await vi.waitFor(() =>
+      expect(screen.getByLabelText<HTMLTextAreaElement>(t('recipe.notes')).value).toBe('Theirs.')
+    );
+    expect(screen.getByLabelText<HTMLInputElement>(t('recipe.servings')).value).toBe('8');
+    expect(screen.queryByText(t('recipe.changedElsewhere'))).toBeNull();
+  });
+
   it('keeps a stale draft from overwriting someone else’s change, and loads the latest', async () => {
     const { store, user, reply, writes, toasts } = await setup(pancakes.id);
     const theirs = { ...pancakes, servings: 8, notes: 'Their notes.', version: 2 };
