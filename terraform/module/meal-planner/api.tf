@@ -18,20 +18,28 @@ locals {
     catalogue_lambda_invoke_arn = module.catalogue.invoke_arn
   }))
 
-  # VersionConflictError.current is `nullable` (OpenAPI 3.0) in openapi.yaml,
-  # so openapi-typescript allows null. API Gateway's models are JSON Schema
-  # draft-04, which has no `nullable`, so the imported body says the same with
-  # a type list instead.
-  openapi_schemas = local.openapi.components.schemas
-  openapi_conflict = merge(local.openapi_schemas.VersionConflictError, {
-    properties = merge(local.openapi_schemas.VersionConflictError.properties, {
-      current = { type = ["object", "null"] }
+  # Nullable properties (VersionConflictError.current, Meal.recipeId and so
+  # on) are `nullable` (OpenAPI 3.0) in openapi.yaml, so openapi-typescript
+  # allows null. API Gateway's models are JSON Schema draft-04, which has no
+  # `nullable`, so the imported body says the same with a type list instead.
+  # This covers every component schema's direct properties; HCL can't recurse,
+  # so a nullable anywhere deeper would need adding here. A nullable property
+  # can't be a $ref, since draft-04 ignores keywords beside one.
+  #
+  # The for expressions (rather than conditionals) let each property keep its
+  # own object shape.
+  openapi_schemas = {
+    for name, schema in local.openapi.components.schemas : name => merge(schema, {
+      for key in can(schema.properties) ? ["properties"] : [] : key => {
+        for prop, s in schema.properties : prop => merge(
+          { for k, v in s : k => v if k != "nullable" },
+          { for k in try(s.nullable, false) ? ["type"] : [] : k => [s.type, "null"] },
+        )
+      }
     })
-  })
+  }
   openapi_body = merge({ for k, v in local.openapi : k => v if k != "x-shared" }, {
-    components = merge(local.openapi.components, {
-      schemas = merge(local.openapi_schemas, { VersionConflictError = local.openapi_conflict })
-    })
+    components = merge(local.openapi.components, { schemas = local.openapi_schemas })
   })
 }
 

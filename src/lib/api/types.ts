@@ -102,6 +102,27 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/holidays/{holidayId}/meals/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Create (version 0) or update a meal */
+    put: operations['putMeal'];
+    post?: never;
+    /**
+     * Delete a meal
+     * @description The same as the generic delete with kind meals. It needs its own method, because API Gateway routes the static meals segment here rather than to {kind}.
+     */
+    delete: operations['deleteMeal'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/holidays/{holidayId}/{kind}/{id}': {
     parameters: {
       query?: never;
@@ -288,13 +309,47 @@ export interface components {
       name: components['schemas']['Name'];
       version: components['schemas']['InputVersion'];
     };
-    /** @description A whole holiday, with its members. Meals, trips and stock changes are typed by the phases that add them. */
+    /**
+     * @description Places a meal on the planner grid (DESIGN §2.1). The order here is the order of the grid's columns.
+     * @enum {string}
+     */
+    MealSlot: 'breakfast' | 'lunch' | 'dinner' | 'snacks' | 'other';
+    /** @description YYYY-MM-DDTHH:mm, holiday-local, with no offset */
+    LocalDateTime: string;
+    /** @description One sitting of a meal; servings are its attendees who still exist */
+    Mealtime: {
+      id: components['schemas']['Uuid'];
+      at: components['schemas']['LocalDateTime'];
+      /** @description Unique within the mealtime (the Lambda checks) */
+      attendeeIds: components['schemas']['Uuid'][];
+    };
+    /** @description Mealtime IDs are unique within the meal (the Lambda checks) */
+    Mealtimes: components['schemas']['Mealtime'][];
+    /** @description Stored with its mealtimes sorted by at */
+    Meal: {
+      id: components['schemas']['Uuid'];
+      name: components['schemas']['Name'];
+      slot: components['schemas']['MealSlot'];
+      /** @description The recipe the meal uses, or null if it has none yet */
+      recipeId: string | null;
+      mealtimes: components['schemas']['Mealtimes'];
+      version: components['schemas']['Version'];
+      updatedAt: components['schemas']['UpdatedAt'];
+      updatedBy: components['schemas']['UpdatedBy'];
+    };
+    MealInput: {
+      name: components['schemas']['Name'];
+      slot: components['schemas']['MealSlot'];
+      /** @description The recipe the meal uses, or null if it has none yet */
+      recipeId: string | null;
+      mealtimes: components['schemas']['Mealtimes'];
+      version: components['schemas']['InputVersion'];
+    };
+    /** @description A whole holiday, with its members. Trips and stock changes are typed by the phases that add them. */
     HolidayFacts: {
       holiday: components['schemas']['Holiday'];
       attendees: components['schemas']['Attendee'][];
-      meals: {
-        [key: string]: unknown;
-      }[];
+      meals: components['schemas']['Meal'][];
       trips: {
         [key: string]: unknown;
       }[];
@@ -914,6 +969,150 @@ export interface operations {
     };
   };
   deleteAttendee: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        holidayId: components['schemas']['Uuid'];
+        id: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Deleted (also when it didn't exist) */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The request failed validation (validation) */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Missing or invalid token (from API Gateway) */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The caller isn't a member of the holiday (not-a-member) */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description The holiday doesn't exist (not-found) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Anything else (internal) */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  putMeal: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        holidayId: components['schemas']['Uuid'];
+        id: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MealInput'];
+      };
+    };
+    responses: {
+      /** @description The meal as stored, with its mealtimes sorted by at */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Meal'];
+        };
+      };
+      /** @description The request failed validation (validation) */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Missing or invalid token (from API Gateway) */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The caller isn't a member of the holiday (not-a-member) */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description The holiday doesn't exist (not-found) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description The stored version differs (version-conflict, with the current item), or a create found the item already exists (already-exists) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json':
+            components['schemas']['VersionConflictError'] | components['schemas']['Error'];
+        };
+      };
+      /** @description Anything else (internal) */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  deleteMeal: {
     parameters: {
       query?: never;
       header?: never;

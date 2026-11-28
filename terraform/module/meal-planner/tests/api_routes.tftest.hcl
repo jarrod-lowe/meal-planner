@@ -77,6 +77,9 @@ run "every_route_is_signed_in_and_proxied_to_its_lambda" {
         # Needed as well as the generic route: API Gateway prefers the static
         # attendees segment over {kind}.
         ["/holidays/{holidayId}/attendees/{id}", "delete", "holidays"],
+        ["/holidays/{holidayId}/meals/{id}", "put", "holidays"],
+        # Likewise for the static meals segment.
+        ["/holidays/{holidayId}/meals/{id}", "delete", "holidays"],
         ["/holidays/{holidayId}/{kind}/{id}", "delete", "holidays"],
         ["/users", "get", "users"],
         ["/catalogue", "get", "catalogue"],
@@ -156,15 +159,111 @@ run "version_conflict_current_may_be_null_in_draft_04" {
   # API Gateway's models are draft-04, which has no `nullable`, so the body
   # it imports says the same thing with a type list.
   assert {
-    condition = yamldecode(aws_api_gateway_rest_api.api.body).components.schemas.VersionConflictError.properties.current == {
-      type = ["object", "null"]
-    }
+    condition     = yamldecode(aws_api_gateway_rest_api.api.body).components.schemas.VersionConflictError.properties.current.type == ["object", "null"]
     error_message = "VersionConflictError.current must be an object or null, in draft-04 terms"
+  }
+
+  assert {
+    condition     = !can(yamldecode(aws_api_gateway_rest_api.api.body).components.schemas.VersionConflictError.properties.current.nullable)
+    error_message = "VersionConflictError.current must not carry nullable into the imported body"
   }
 
   assert {
     condition     = local.openapi.components.schemas.VersionConflictError.properties.current.nullable == true
     error_message = "openapi.yaml must mark VersionConflictError.current nullable, so the generated type allows null"
+  }
+}
+
+run "meal_recipe_id_may_be_null_in_draft_04" {
+  command = plan
+
+  # As with VersionConflictError.current: nullable in openapi.yaml for
+  # openapi-typescript, a type list in the body API Gateway imports. The UUID
+  # pattern is inline, since draft-04 ignores keywords beside a $ref.
+  assert {
+    condition = [
+      for s in ["Meal", "MealInput"] :
+      s if !(
+        yamldecode(aws_api_gateway_rest_api.api.body).components.schemas[s].properties.recipeId.type == ["string", "null"] &&
+        yamldecode(aws_api_gateway_rest_api.api.body).components.schemas[s].properties.recipeId.pattern == local.openapi.components.schemas.Uuid.pattern &&
+        !can(yamldecode(aws_api_gateway_rest_api.api.body).components.schemas[s].properties.recipeId.nullable) &&
+        !can(yamldecode(aws_api_gateway_rest_api.api.body).components.schemas[s].properties.recipeId["$ref"])
+      )
+    ] == []
+    error_message = "Meal.recipeId and MealInput.recipeId must be a UUID string or null, in draft-04 terms, with no nullable"
+  }
+
+  assert {
+    condition = [
+      for s in ["Meal", "MealInput"] :
+      s if !(local.openapi.components.schemas[s].properties.recipeId.nullable == true)
+    ] == []
+    error_message = "openapi.yaml must mark Meal.recipeId and MealInput.recipeId nullable, so the generated type allows null"
+  }
+
+  # No nullable reaches API Gateway, which doesn't know the keyword.
+  assert {
+    condition = flatten([
+      for name, schema in yamldecode(aws_api_gateway_rest_api.api.body).components.schemas : [
+        for prop, s in try(schema.properties, {}) : "${name}.${prop}" if can(s.nullable)
+      ]
+    ]) == []
+    error_message = "No schema property in the imported body may use nullable"
+  }
+}
+
+run "meal_schemas_follow_design" {
+  command = plan
+
+  # DESIGN §2.1: the slots in the planner's column order.
+  assert {
+    condition = yamldecode(aws_api_gateway_rest_api.api.body).components.schemas.MealSlot.enum == [
+      "breakfast", "lunch", "dinner", "snacks", "other",
+    ]
+    error_message = "MealSlot must list DESIGN §2.1's slots, in order"
+  }
+
+  assert {
+    condition     = yamldecode(aws_api_gateway_rest_api.api.body).components.schemas.LocalDateTime.pattern == "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$"
+    error_message = "LocalDateTime must be YYYY-MM-DDTHH:mm"
+  }
+
+  # DESIGN §5.2: 1–100 mealtimes per meal, up to 100 attendees per mealtime.
+  assert {
+    condition = [
+      for s in ["Meal", "MealInput"] :
+      yamldecode(aws_api_gateway_rest_api.api.body).components.schemas[s].properties.mealtimes["$ref"]
+    ] == ["#/components/schemas/Mealtimes", "#/components/schemas/Mealtimes"]
+    error_message = "Meal and MealInput mealtimes must be Mealtimes"
+  }
+
+  assert {
+    condition = [
+      yamldecode(aws_api_gateway_rest_api.api.body).components.schemas.Mealtimes.minItems,
+      yamldecode(aws_api_gateway_rest_api.api.body).components.schemas.Mealtimes.maxItems,
+    ] == [1, 100]
+    error_message = "A meal must have 1 to 100 mealtimes"
+  }
+
+  assert {
+    condition     = yamldecode(aws_api_gateway_rest_api.api.body).components.schemas.Mealtime.properties.attendeeIds.maxItems == 100
+    error_message = "A mealtime may have at most 100 attendees"
+  }
+
+  assert {
+    condition = [
+      for s in ["Meal", "MealInput", "Mealtime"] : sort(yamldecode(aws_api_gateway_rest_api.api.body).components.schemas[s].required)
+      ] == [
+      sort(["id", "name", "slot", "recipeId", "mealtimes", "version", "updatedAt", "updatedBy"]),
+      sort(["name", "slot", "recipeId", "mealtimes", "version"]),
+      sort(["id", "at", "attendeeIds"]),
+    ]
+    error_message = "Meal, MealInput and Mealtime must require all their fields, recipeId included"
+  }
+
+  assert {
+    condition     = yamldecode(aws_api_gateway_rest_api.api.body).components.schemas.HolidayFacts.properties.meals.items["$ref"] == "#/components/schemas/Meal"
+    error_message = "HolidayFacts.meals must be a list of Meals"
   }
 }
 
